@@ -1,0 +1,31 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}我的博客{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="{% url 'blog:list' %}">我的博客</a>
+      <nav>
+        <a href="{% url 'blog:list' %}">首页</a>
+        <a href="/admin/" target="_blank" rel="noopener">后台</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>记录我做过的东西和踩过的坑</p>
+    </div>
+  </footer>
+</body>
+</html>

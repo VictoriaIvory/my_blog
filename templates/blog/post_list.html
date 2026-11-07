@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}首页 · 我的博客{% endblock %}
+
+{% block content %}
+{% if posts %}
+  <ul class="post-list">
+    {% for post in posts %}
+      <li class="post-item">
+        <h2><a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a></h2>
+        <p class="meta">{{ post.created_at|date:"Y 年 n 月 j 日" }}</p>
+        <p class="summary">{{ post.summary }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="empty">还没有文章。去 <a href="/admin/">后台</a> 写第一篇吧。</p>
+{% endif %}
+{% endblock %}
