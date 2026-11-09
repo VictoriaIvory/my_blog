@@ -1,7 +1,9 @@
 """造演示数据：python manage.py seed_posts
 
-第一次跑起来时页面是空的，用这个命令插三篇占位文章，
+第一次跑起来时页面是空的，用这个命令插一篇占位文章，
 方便看到列表页和详情页的效果。内容请自己替换成真实文章。
+
+（原先造三篇，2026-11-09 按需求只保留第一篇。）
 """
 
 from django.core.management.base import BaseCommand
@@ -14,21 +16,11 @@ DEMO_POSTS = [
         '这是占位文章，等内容写好后替换。\n\n'
         '可以先按这个结构写：问题是什么 → 我一开始怎么做的 → 为什么不对 → 最后怎么解决的。',
     ),
-    (
-        '当天到期为什么被判成「已过期」',
-        '这是占位文章，等内容写好后替换。\n\n'
-        '写技术博客最重要的不是炫技，是把踩坑过程写明白，让下一个遇到的人少走弯路。',
-    ),
-    (
-        '大一加入技术组的第一周',
-        '这是占位文章，等内容写好后替换。\n\n'
-        '可以写这周遇到的培训和任务、当时不懂的地方、后来怎么弄明白的。',
-    ),
 ]
 
 
 class Command(BaseCommand):
-    help = '插入三篇演示文章（已存在则跳过）'
+    help = '插入一篇演示文章（已存在则跳过）'
 
     def handle(self, *args, **options):
         created = 0
@@ -39,6 +31,6 @@ class Command(BaseCommand):
 
         if created:
             self.stdout.write(self.style.SUCCESS('已创建 %d 篇演示文章' % created))
-            self.stdout.write(self.style.WARNING('记得去后台把它们换成你自己的真实文章'))
+            self.stdout.write(self.style.WARNING('记得去后台把它换成你自己的真实文章'))
         else:
             self.stdout.write(self.style.WARNING('演示文章已存在，未重复创建'))
