@@ -28,3 +28,6 @@ staticfiles/
 
 # 日志
 *.log
+
+# Office / WPS 打开文件时生成的临时锁文件
+~\$*
