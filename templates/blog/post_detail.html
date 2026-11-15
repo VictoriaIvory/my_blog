@@ -7,6 +7,9 @@
   <h1>{{ post.title }}</h1>
   <p class="meta">
     {{ post.created_at|date:"Y 年 n 月 j 日" }}
+    {% if post.category %}
+      · <a href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+    {% endif %}
     {% if post.updated_at|date:"Y-m-d H:i" != post.created_at|date:"Y-m-d H:i" %}
       · 更新于 {{ post.updated_at|date:"Y-m-d" }}
     {% endif %}

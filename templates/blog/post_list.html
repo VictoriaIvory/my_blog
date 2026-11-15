@@ -3,17 +3,63 @@
 {% block title %}首页 · 我的博客{% endblock %}
 
 {% block content %}
+<form class="search" method="get" action="{% url 'blog:list' %}">
+  <input type="search" name="q" value="{{ q }}" placeholder="搜索标题或正文…" aria-label="搜索文章">
+  {% if current_category %}<input type="hidden" name="category" value="{{ current_category.name }}">{% endif %}
+  <button type="submit">搜索</button>
+</form>
+
+<nav class="category-nav" aria-label="分类">
+  <a href="{% url 'blog:list' %}" class="{% if not current_category %}active{% endif %}">全部</a>
+  {% for cat in categories %}
+    <a href="{% url 'blog:list' %}?category={{ cat.name|urlencode }}"
+       class="{% if current_category and current_category.pk == cat.pk %}active{% endif %}">{{ cat.name }}</a>
+  {% endfor %}
+</nav>
+
+{% if q or current_category %}
+  <p class="result-hint">
+    共 {{ total_count }} 篇
+    {% if q %}· 关键词「{{ q }}」{% endif %}
+    {% if current_category %}· 分类「{{ current_category.name }}」{% endif %}
+    <a href="{% url 'blog:list' %}">清除筛选</a>
+  </p>
+{% endif %}
+
 {% if posts %}
   <ul class="post-list">
     {% for post in posts %}
       <li class="post-item">
         <h2><a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a></h2>
-        <p class="meta">{{ post.created_at|date:"Y 年 n 月 j 日" }}</p>
+        <p class="meta">
+          {{ post.created_at|date:"Y 年 n 月 j 日" }}
+          {% if post.category %}· <a href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>{% endif %}
+        </p>
         <p class="summary">{{ post.summary }}</p>
       </li>
     {% endfor %}
   </ul>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="pager" aria-label="分页">
+      {% if page_obj.has_previous %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">← 上一页</a>
+      {% else %}
+        <span class="disabled">← 上一页</span>
+      {% endif %}
+
+      <span class="pager-info">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+
+      {% if page_obj.has_next %}
+        <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">下一页 →</a>
+      {% else %}
+        <span class="disabled">下一页 →</span>
+      {% endif %}
+    </nav>
+  {% endif %}
 {% else %}
-  <p class="empty">还没有文章。去 <a href="/admin/">后台</a> 写第一篇吧。</p>
+  <p class="empty">
+    {% if q or current_category %}没有找到符合条件的文章。{% else %}还没有文章。去 <a href="/admin/">后台</a> 写第一篇吧。{% endif %}
+  </p>
 {% endif %}
 {% endblock %}
