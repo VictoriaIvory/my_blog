@@ -9,8 +9,14 @@
 |---|---|---|
 | **1** | 项目骨架 + 文章模型 + 后台 + 列表/详情页 | ✅ 2026-11-07 |
 | **2** | 分类 + 搜索 + 分页 | ✅ 2026-11-15 |
-| 3 | Markdown 渲染 + 样式打磨 | ⬜ 下一步 |
-| 4 | 部署上线 + 写 3 篇真实文章 | ⬜ |
+| **3** | Markdown 渲染 + 代码高亮 + 样式打磨 | ✅ 2026-11-16 |
+| 4 | 部署上线（3 篇真实文章已就位） | ⬜ 下一步 |
+
+## 文章（3 篇）
+
+1. 《我做投票demo时遇到的各种drama问题》—— 饼图 SVG 踩坑（2026-11-09）
+2. 《给博客加分类、搜索和分页，三个我以为半小时能搞定的东西》（2026-11-16）
+3. 《让室友用手机给我的投票 demo 投票：ALLOWED_HOSTS 那点事》（2026-11-16）
 
 ## 环境
 
@@ -19,7 +25,7 @@
 | Python | 3.12.10 |
 | Django | 5.2.18 LTS |
 | 数据库 | SQLite |
-| 依赖 | `requirements.txt`（Django + python-dotenv） |
+| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments） |
 
 > ⚠️ **不能用 Python 3.14**：Django 5.2 官方支持 3.10–3.13。
 > 建虚拟环境时确认 `python --version` 是 3.12。
@@ -76,18 +82,23 @@ myblog/
 │   └── urls.py             # 总路由：/admin/ 和 /（交给 blog）
 ├── blog/                   # 博客应用
 │   ├── models.py           # Category 分类 + Post 文章（带外键）
+│   ├── markdown_render.py  # Markdown → HTML + 白名单清洗（阶段 3）
 │   ├── admin.py            # 后台配置（两个模型）
 │   ├── views.py            # 列表（筛选/搜索/分页）、详情
 │   ├── urls.py             # 2 条路由
-│   ├── tests.py            # 22 个测试
+│   ├── tests.py            # 33 个测试
 │   ├── migrations/         # 建表脚本（自动生成，不要手改）
 │   └── management/commands/seed_posts.py   # 造演示分类和文章
 ├── templates/
 │   ├── base.html           # 全站外壳（顶栏 + 页脚）
+│   ├── 404.html            # 404 页面（DEBUG=False 时生效）
 │   └── blog/
 │       ├── post_list.html  # 列表页（搜索框 + 分类导航 + 分页）
-│       └── post_detail.html# 详情页
-└── static/css/style.css    # 全站样式（约 330 行，无框架）
+│       └── post_detail.html# 详情页（正文渲染 Markdown）
+├── static/css/
+│   ├── style.css           # 全站样式（约 500 行，无框架）
+│   └── pygments.css        # 代码高亮配色（Pygments 生成，勿手改）
+└── .github/workflows/tests.yml  # GitHub Actions：每次 push 自动跑测试
 ```
 
 ## 这一版实现了什么
@@ -107,6 +118,15 @@ myblog/
 - **搜索**：`/?q=关键词`，标题和正文都搜，不区分大小写
 - **分页**：`/?page=2`，每页 5 篇；翻页时保留搜索词和分类
 - **测试从 6 个加到 22 个**：分类、搜索、分页各有用例，草稿在任何筛选下都不漏
+
+**阶段 3（2026-11-16）**
+
+- **Markdown 渲染**：正文用 Markdown 写，支持标题、列表、表格、引用、链接、图片
+- **代码高亮**：` ```python ` 围栏代码块由 Pygments 上色，配色表由程序生成
+- **安全清洗**：渲染后过一遍 `bleach` 白名单，正文里混进 `<script>` 也不会执行
+- **摘要不露记号**：列表页摘要基于渲染后的纯文本生成，不会出现 `**`、`` ` ``、`](`
+- **细节补完**：分页条显示页码（页数多时用省略号）、404 页面、GitHub Actions 自动跑测试
+- **测试从 22 个加到 33 个**：Markdown 渲染、XSS 清洗、页码、404 页面各有用例
 
 ## 用到的 Django 知识点
 
@@ -129,9 +149,15 @@ myblog/
 | `Paginator` + `get_page` | 分页，非法页码自动兜底 |
 | URL 命名空间 | `app_name = 'blog'`，模板里 `{% url 'blog:detail' %}` |
 | 模板继承 | `base.html` + 两个子模板 |
-| 过滤器 | `date`、`linebreaks`、`urlencode` |
-| 静态文件 | `static/css/style.css` |
-| 测试 | `blog/tests.py` |
+| 过滤器 | `date`、`urlencode` |
+| 静态文件 | `static/css/style.css`、`pygments.css` |
+| Markdown 渲染 | `blog/markdown_render.py`（`render_markdown`） |
+| HTML 安全清洗 | `bleach.clean` 白名单（标签 / 属性 / 协议） |
+| 代码高亮 | Pygments（`codehilite` 扩展 + 自动生成配色表） |
+| `mark_safe` | 清洗后的 HTML 标记为安全，模板里 `|safe` 输出 |
+| 404 自定义页 | `templates/404.html`，`DEBUG=False` 时自动使用 |
+| 模板里的页码循环 | `page_numbers`（视图算好，模板只负责渲染） |
+| 测试 | `blog/tests.py`（33 个） |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -167,11 +193,35 @@ URL 里不会出现拼音。代价是分类改名会断开旧链接——个人�
 另外「翻页链接」要把当前搜索词和分类带过去，所以视图里先把 `page`
 参数摘掉、剩下参数重新编码成 `querystring` 交给模板。
 
-## 下一步（阶段 3）
+**阶段 3：为什么 Markdown 渲染完还要用 bleach 清洗？**
+Markdown 库默认允许 HTML 原样通过（方便写 `<br>`、`<img>`），这正是 XSS 的入口。
+虽然现在只有管理员能写文章、风险低，但**渲染函数是唯一出口**，在这里兜一次底最省心：
+标签、属性、协议全走白名单，`<script>`、`onerror=` 这类东西会被删掉。
+测试里专门放了一条 `<script>` 和一条 `<img onerror>`，以后改渲染器也不会悄悄失守。
 
-- Markdown 渲染：引 `markdownify` 或 `python-markdown`，写文章能用代码块
-- 样式打磨：文章正文的代码块、引用、图片
-- 测试继续守着：Markdown 渲染不能带出 XSS（渲染后要转义/清洗）
+**阶段 3：为什么保留 `nl2br` 扩展？**
+前两阶段正文是纯文本，靠 `|linebreaks` 把换行变段落；直接切 Markdown 会让老文章
+的行间感丢失（Markdown 会把单个换行当空格）。`nl2br` 让单个换行也变 `<br>`，
+旧文章看起来和以前一致，新文章写 Markdown 也不受影响。
+
+**阶段 3：代码高亮的配色表为什么是生成的？**
+Pygments 只负责输出 `<span class="k">` 这类 class，具体颜色要写在 CSS 里。
+手抄几百行不现实，所以用 `HtmlFormatter().get_style_defs('.codehilite')` 生成一次
+`static/css/pygments.css`，以后想换主题重跑一遍就行。文件头写了来源和生成方式。
+
+**阶段 3：摘要为什么用渲染后的纯文本？**
+直接截取正文的话，摘要里会混进 `**`、代码围栏标记、`[]()` 这些记号，列表页一眼假。
+先渲染再 `strip_tags`，得到的是「读者真正看到的文字」，再截 80 字。
+
+## 下一步（阶段 4：部署）
+
+- 部署到 PythonAnywhere（免费、支持 Django + SQLite）或自己的服务器
+- 生产配置：`DEBUG=False`、`ALLOWED_HOSTS` 写死域名、WhiteNoise 处理静态文件、
+  按 `manage.py check --deploy` 补齐安全项
+- 数据库：`db.sqlite3` 不进 Git，部署后要单独上传/备份，先写一份《部署手册》
+- 线上验收：手机能打开、后台能写文章、链接发给组长能点开
+
+> 文章已按阶段 4 的要求写到 3 篇；阶段 4 只剩部署这一件事。
 
 ## 换台电脑怎么复现
 
