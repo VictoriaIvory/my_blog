@@ -4,9 +4,12 @@
 
 {% block content %}
 <div class="not-found">
-  <p class="code">404</p>
+  <p class="not-found-code">404</p>
   <h1>这个页面走丢了</h1>
-  <p>可能是链接写错了，也可能是文章被删了。</p>
-  <p><a href="{% url 'blog:list' %}">← 回首页看看</a></p>
+  <p class="not-found-desc">可能是链接写错了，也可能是文章被删了。</p>
+  <div class="not-found-actions">
+    <a class="btn-primary" href="{% url 'blog:list' %}">回首页看看</a>
+    <a class="btn-ghost" href="/admin/" target="_blank" rel="noopener">去后台写文章</a>
+  </div>
 </div>
 {% endblock %}

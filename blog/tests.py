@@ -246,7 +246,7 @@ class MarkdownRenderTests(TestCase):
 
     def test_heading_and_list_render(self):
         html = self._detail_html('## 小标题\n\n- 第一项\n- 第二项')
-        self.assertIn('<h2>小标题</h2>', html)
+        self.assertIn('<h2 id="小标题">小标题</h2>', html)   # toc 扩展会给标题加锚点 id
         self.assertIn('<li>第一项</li>', html)
 
     def test_fenced_code_is_highlighted(self):
@@ -324,3 +324,51 @@ class NotFoundPageTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertContains(response, '页面走丢了', status_code=404)
+
+
+class LayoutTests(TestCase):
+    """视觉改版（2026-11-16）：头图、目录、阅读时间、上一篇/下一篇。"""
+
+    def test_hero_only_on_clean_first_page(self):
+        Post.objects.create(title='一篇文章', body='内容')
+
+        home = self.client.get(reverse('blog:list'))
+        self.assertContains(home, 'hero-title')
+        self.assertContains(home, '篇文章')
+
+        filtered = self.client.get(reverse('blog:list'), {'q': '一篇文章'})
+        self.assertNotContains(filtered, 'hero-title')
+
+    def test_toc_built_from_headings(self):
+        body = '## 第一节\n\n内容\n\n### 小节\n\n内容\n\n## 第二节\n\n内容'
+        post = Post.objects.create(title='带目录的文章', body=body)
+
+        response = self.client.get(reverse('blog:detail', args=(post.pk,)))
+
+        self.assertEqual(len(response.context['toc']), 3)
+        self.assertContains(response, '本文目录')
+        self.assertContains(response, 'toc-list')
+
+    def test_reading_time_computed(self):
+        post = Post.objects.create(title='长文', body='字' * 800)
+
+        self.assertEqual(post.word_count, 800)
+        self.assertEqual(post.reading_time, 2)
+
+        response = self.client.get(reverse('blog:detail', args=(post.pk,)))
+        self.assertContains(response, '分钟读完')
+
+    def test_prev_and_next_links(self):
+        first = Post.objects.create(title='第一篇', body='x')
+        second = Post.objects.create(title='第二篇', body='x')
+        third = Post.objects.create(title='第三篇', body='x')
+
+        middle = self.client.get(reverse('blog:detail', args=(second.pk,)))
+        self.assertContains(middle, '← 上一篇')
+        self.assertContains(middle, '下一篇 →')
+        self.assertContains(middle, first.title)
+        self.assertContains(middle, third.title)
+
+        oldest = self.client.get(reverse('blog:detail', args=(first.pk,)))
+        self.assertNotContains(oldest, '← 上一篇')
+        self.assertContains(oldest, '下一篇 →')

@@ -15,6 +15,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, render
 
+from .markdown_render import extract_toc
 from .models import Category, Post
 
 # 每页显示几篇。放成常量，以后想改只改这一处。
@@ -81,6 +82,11 @@ def post_list(request):
         'querystring': querystring,
         'page_numbers': _page_numbers(page_obj),
         'total_count': paginator.count,
+        # 首页头图只在「没筛选、第一页」时出现，搜索/翻页时不重复占屏
+        'show_hero': not q and not category and page_obj.number == 1,
+        'published_count': Post.objects.filter(is_published=True).count(),
+        'category_count': Category.objects.count(),
+        'latest_post': Post.objects.filter(is_published=True).first(),
     }
     return render(request, 'blog/post_list.html', context)
 
@@ -89,7 +95,19 @@ def post_detail(request, pk):
     """文章详情页。
 
     注意这里把 is_published=True 也写进了查询条件：
-    未发布的文章直接 404，而不是让人通过改 URL 里的 id 看到草稿。
+    未发布的文章直接 404，而不是让人通过改 URL 里的数字看到草稿。
     """
     post = get_object_or_404(Post, pk=pk, is_published=True)
-    return render(request, 'blog/post_detail.html', {'post': post})
+    published = Post.objects.filter(is_published=True)
+
+    # 上一篇 = 更早的一篇（pk 更小）；下一篇 = 更新的一篇
+    prev_post = published.filter(pk__lt=post.pk).order_by('-pk').first()
+    next_post = published.filter(pk__gt=post.pk).order_by('pk').first()
+
+    context = {
+        'post': post,
+        'toc': extract_toc(post.body_html),
+        'prev_post': prev_post,
+        'next_post': next_post,
+    }
+    return render(request, 'blog/post_detail.html', context)

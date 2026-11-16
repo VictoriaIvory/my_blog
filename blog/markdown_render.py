@@ -23,12 +23,32 @@ from django.utils.safestring import mark_safe
 #   tables      表格
 #   sane_lists  嵌套列表
 #   nl2br       单个换行也变 <br>（保留旧文章的行间感）
-MARKDOWN_EXTENSIONS = ['fenced_code', 'codehilite', 'tables', 'sane_lists', 'nl2br']
+#   toc         给标题生成锚点 id（详情页右侧的「本文目录」要用）
+MARKDOWN_EXTENSIONS = ['fenced_code', 'codehilite', 'tables', 'sane_lists', 'nl2br', 'toc']
+
+
+def _slugify_keep_unicode(value, separator='-'):
+    """给 toc 扩展生成标题锚点。
+
+    Python-Markdown 默认的 slugify 会把中文全删掉（标题「一、分类」的 id 会变成
+    ``slug`` / ``_1``），目录里点过去全错位。这里保留中文、只把标点空格换成连字符。
+    """
+    if isinstance(value, (list, tuple)):
+        value = ''.join(value)
+    text = str(value).strip().lower()
+    text = re.sub(r'[^\w\u4e00-\u9fff]+', separator, text, flags=re.UNICODE)
+    text = re.sub(re.escape(separator) + r'{2,}', separator, text).strip(separator)
+    return text or 'section'
+
 
 MARKDOWN_EXTENSION_CONFIGS = {
     'codehilite': {
         'css_class': 'codehilite',   # 与 static/css/pygments.css 里的选择器对应
         'guess_lang': False,         # 不猜语言，避免高亮错得莫名其妙
+    },
+    'toc': {
+        'slugify': _slugify_keep_unicode,
+        'toc_depth': '2-3',          # 只给 h2 / h3 生成锚点
     },
 }
 
@@ -97,3 +117,27 @@ def make_summary(text, length=80):
     if len(plain) <= length:
         return plain
     return plain[:length] + '…'
+
+
+def count_chars(text):
+    """正文有效字符数（去掉空白），用来估算阅读时间。"""
+    if not text:
+        return 0
+    plain = strip_tags(render_markdown(text))
+    return len(re.sub(r'\s+', '', plain))
+
+
+_HEADING_TAG_RE = re.compile(r'<h([23]) id="([^"]+)">(.*?)</h\1>', re.S)
+
+
+def extract_toc(html):
+    """从渲染后的正文 HTML 里抽出 h2/h3，生成详情页的「本文目录」。
+
+    返回 [{'level': 2, 'anchor': '一-分类', 'text': '一、分类'}, ...]。
+    """
+    items = []
+    for level, anchor, inner in _HEADING_TAG_RE.findall(html or ''):
+        text = bleach.clean(inner, tags=set(), strip=True).strip()
+        if text:
+            items.append({'level': int(level), 'anchor': anchor, 'text': text})
+    return items

@@ -4,17 +4,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="{% block description %}记录做过的事，和踩过的坑。{% endblock %}">
   <title>{% block title %}我的博客{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   <link rel="stylesheet" href="{% static 'css/pygments.css' %}">
 </head>
 <body>
   <header class="site-header">
-    <div class="wrap">
-      <a class="brand" href="{% url 'blog:list' %}">我的博客</a>
-      <nav>
-        <a href="{% url 'blog:list' %}">首页</a>
-        <a href="/admin/" target="_blank" rel="noopener">后台</a>
+    <div class="wrap header-inner">
+      <a class="brand" href="{% url 'blog:list' %}">
+        <svg class="brand-mark" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+          <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5V5.5Z" fill="currentColor" opacity=".32"/>
+          <path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5V5.5Z" fill="currentColor"/>
+        </svg>
+        <span class="brand-text">
+          <span class="brand-name">我的博客</span>
+          <span class="brand-sub">记录与踩坑</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="站点导航">
+        <a href="{% url 'blog:list' %}" class="{% if request.resolver_match.url_name == 'list' %}active{% endif %}">文章</a>
+        <a href="/admin/" target="_blank" rel="noopener">写文章</a>
+        <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub</a>
       </nav>
     </div>
   </header>
@@ -24,8 +35,17 @@
   </main>
 
   <footer class="site-footer">
-    <div class="wrap">
-      <p>记录我做过的东西和踩过的坑</p>
+    <div class="wrap footer-inner">
+      <div class="footer-brand">
+        <p class="footer-title">我的博客</p>
+        <p class="footer-desc">记录做过的事，和踩过的坑。</p>
+      </div>
+      <div class="footer-links">
+        <a href="{% url 'blog:list' %}">首页</a>
+        <a href="/admin/" target="_blank" rel="noopener">后台</a>
+        <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="footer-copy">© 2026 · 用 Django 5.2 写的</p>
     </div>
   </footer>
 </body>

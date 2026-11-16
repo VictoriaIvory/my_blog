@@ -1,20 +1,55 @@
 {% extends 'base.html' %}
 
 {% block title %}{{ post.title }} · 我的博客{% endblock %}
+{% block description %}{{ post.summary }}{% endblock %}
 
 {% block content %}
 <article class="post">
-  <h1>{{ post.title }}</h1>
-  <p class="meta">
-    {{ post.created_at|date:"Y 年 n 月 j 日" }}
-    {% if post.category %}
-      · <a href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
-    {% endif %}
-    {% if post.updated_at|date:"Y-m-d H:i" != post.created_at|date:"Y-m-d H:i" %}
-      · 更新于 {{ post.updated_at|date:"Y-m-d" }}
-    {% endif %}
-  </p>
+  <header class="post-header">
+    <div class="post-kicker">
+      {% if post.category %}
+        <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+      {% endif %}
+      <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
+      <span class="dot" aria-hidden="true">·</span>
+      <span>约 {{ post.reading_time }} 分钟读完</span>
+    </div>
+    <h1 class="post-title">{{ post.title }}</h1>
+  </header>
+
+  {% if toc|length > 1 %}
+    <nav class="toc" aria-label="本文目录">
+      <p class="toc-title">本文目录</p>
+      <ol class="toc-list">
+        {% for item in toc %}
+          <li class="toc-item toc-level-{{ item.level }}">
+            <a href="#{{ item.anchor }}">{{ item.text }}</a>
+          </li>
+        {% endfor %}
+      </ol>
+    </nav>
+  {% endif %}
+
   <div class="post-body">{{ post.body_html|safe }}</div>
+
+  <nav class="post-nav" aria-label="上一篇 / 下一篇">
+    {% if prev_post %}
+      <a class="post-nav-item" href="{% url 'blog:detail' prev_post.pk %}">
+        <span class="post-nav-label">← 上一篇</span>
+        <span class="post-nav-title">{{ prev_post.title }}</span>
+      </a>
+    {% else %}
+      <span class="post-nav-item post-nav-empty"></span>
+    {% endif %}
+    {% if next_post %}
+      <a class="post-nav-item post-nav-next" href="{% url 'blog:detail' next_post.pk %}">
+        <span class="post-nav-label">下一篇 →</span>
+        <span class="post-nav-title">{{ next_post.title }}</span>
+      </a>
+    {% else %}
+      <span class="post-nav-item post-nav-empty"></span>
+    {% endif %}
+  </nav>
 </article>
 
 <p class="back"><a href="{% url 'blog:list' %}">← 返回首页</a></p>

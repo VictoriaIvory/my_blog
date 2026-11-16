@@ -67,3 +67,14 @@ class Post(models.Model):
         """列表页用的摘要：渲染后的纯文本前 80 个字，超出的加省略号。"""
         from .markdown_render import make_summary
         return make_summary(self.body, 80)
+
+    @property
+    def word_count(self):
+        """正文有效字符数（去掉空白），用于阅读时间估算。"""
+        from .markdown_render import count_chars
+        return count_chars(self.body)
+
+    @property
+    def reading_time(self):
+        """估算阅读时间（分钟）：按中文 400 字/分钟，至少 1 分钟。"""
+        return max(1, round(self.word_count / 400))
