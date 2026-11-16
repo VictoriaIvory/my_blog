@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}关于 · 我的博客{% endblock %}
+{% block description %}关于这个博客和它的搭建过程。{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <p class="page-eyebrow">ABOUT</p>
+  <h1 class="page-title">关于这个博客</h1>
+  <p class="page-desc">一个用 Django 写的个人博客，记录项目里真实遇到的问题。</p>
+</section>
+
+<div class="about">
+  <section class="about-section">
+    <h2>为什么写</h2>
+    <p>
+      很多坑当时踩得很痛，过两周就忘了细节，下次还会再踩一遍。
+      所以把「现象 → 当时怎么想的 → 错在哪 → 最后怎么解决」写下来，
+      更像是留给几周后自己的备忘，而不是教程。
+    </p>
+    <p>
+      文章里出现的项目都是自己做的：投票系统、这个博客本身，
+      以及平时练习 Django 时写的小东西。写出来的每个问题都能指着代码说清楚。
+    </p>
+  </section>
+
+  <section class="about-section">
+    <h2>用了什么</h2>
+    <table class="about-table">
+      <tbody>
+        <tr><th>后端</th><td>Python 3.12 · Django 5.2 LTS</td></tr>
+        <tr><th>数据库</th><td>SQLite（个人博客够用，备份就是拷一个文件）</td></tr>
+        <tr><th>正文</th><td>Markdown 渲染 + Pygments 代码高亮 + bleach 白名单清洗</td></tr>
+        <tr><th>前端</th><td>手写 HTML / CSS，没有框架、不依赖外部 CDN</td></tr>
+        <tr><th>测试</th><td>Django 测试 + GitHub Actions 每次 push 自动跑</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="about-section">
+    <h2>现在有什么</h2>
+    <div class="about-stats">
+      <div class="about-stat">
+        <strong>{{ published_count }}</strong>
+        <span>篇文章</span>
+      </div>
+      <div class="about-stat">
+        <strong>{{ category_count }}</strong>
+        <span>个分类</span>
+      </div>
+      <div class="about-stat">
+        <strong>{{ tag_count }}</strong>
+        <span>个标签</span>
+      </div>
+    </div>
+    <p>
+      功能上已经能：写文章（Markdown + 封面图）、分类与标签筛选、搜索、分页、
+      归档、RSS 订阅、站点地图。下一步是部署上线。
+    </p>
+  </section>
+
+  <section class="about-section">
+    <h2>怎么做的</h2>
+    <p>
+      整个站点分四个阶段做，每阶段的决策、踩坑和验证方式都记在
+      <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub 仓库</a>
+      的 <code>docs/00_建站档案_20261109.md</code> 里。
+    </p>
+    <p>
+      代码：<a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">github.com/VictoriaIvory/my_blog</a>
+      · 订阅：<a href="{% url 'blog:feed' %}">RSS</a>
+    </p>
+  </section>
+</div>
+{% endblock %}

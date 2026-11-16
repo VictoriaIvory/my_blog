@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}归档 · 我的博客{% endblock %}
+{% block description %}按时间浏览全部文章。{% endblock %}
+
+{% block content %}
+<section class="page-header">
+  <p class="page-eyebrow">ARCHIVE</p>
+  <h1 class="page-title">归档</h1>
+  <p class="page-desc">共 {{ total_count }} 篇文章，按时间倒序。</p>
+</section>
+
+{% if groups %}
+  <div class="archive">
+    {% for group in groups %}
+      <section class="archive-group">
+        <h2 class="archive-month">
+          <span class="archive-year">{{ group.year }}</span>
+          <span class="archive-month-num">{{ group.month }} 月</span>
+          <span class="archive-count">{{ group.posts|length }} 篇</span>
+        </h2>
+        <ul class="archive-list">
+          {% for post in group.posts %}
+            <li class="archive-item">
+              <a href="{% url 'blog:detail' post.pk %}">
+                <span class="archive-date">{{ post.created_at|date:"m-d" }}</span>
+                <span class="archive-title">{{ post.title }}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">
+    <p class="empty-title">还没有文章</p>
+    <p class="empty-desc">去 <a href="/admin/">后台</a> 写第一篇吧。</p>
+  </div>
+{% endif %}
+{% endblock %}

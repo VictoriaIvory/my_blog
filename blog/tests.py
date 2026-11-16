@@ -4,11 +4,15 @@
 每个测试验证一条行为，改坏代码时能立刻发现。
 """
 
+import shutil
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Category, Post
+from .models import Category, Post, Tag
 
 
 class PostListTests(TestCase):
@@ -372,3 +376,178 @@ class LayoutTests(TestCase):
         oldest = self.client.get(reverse('blog:detail', args=(first.pk,)))
         self.assertNotContains(oldest, '← 上一篇')
         self.assertContains(oldest, '下一篇 →')
+
+
+class TagFilterTests(TestCase):
+    """2026-11-16：标签（多对多）筛选。"""
+
+    def setUp(self):
+        self.deploy = Tag.objects.create(name='部署')
+        self.post_tagged = Post.objects.create(title='部署踩坑', body='x')
+        self.post_tagged.tags.add(self.deploy)
+        self.post_plain = Post.objects.create(title='没标签的文章', body='x')
+
+    def test_filter_by_tag(self):
+        response = self.client.get(reverse('blog:list'), {'tag': '部署'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '部署踩坑')
+        self.assertNotContains(response, '没标签的文章')
+        self.assertEqual(response.context['current_tag'].pk, self.deploy.pk)
+
+    def test_unknown_tag_returns_empty(self):
+        response = self.client.get(reverse('blog:list'), {'tag': '不存在的标签'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['total_count'], 0)
+
+    def test_tag_shown_on_card_and_detail(self):
+        card = self.client.get(reverse('blog:list'))
+        self.assertContains(card, 'tag-nav')
+        self.assertContains(card, '部署')
+
+        detail = self.client.get(reverse('blog:detail', args=(self.post_tagged.pk,)))
+        self.assertContains(detail, 'post-tags')
+
+
+class CoverImageTests(TestCase):
+    """2026-11-16：封面图上传（列表卡片 + 详情页大图）。"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.media_root = tempfile.mkdtemp(prefix='myblog-test-media-')
+        cls.override = override_settings(MEDIA_ROOT=cls.media_root)
+        cls.override.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.override.disable()
+        shutil.rmtree(cls.media_root, ignore_errors=True)
+        super().tearDownClass()
+
+    def test_cover_renders_in_list_and_detail(self):
+        cover = SimpleUploadedFile('cover.png', b'fake-png-bytes', content_type='image/png')
+        post = Post.objects.create(title='有封面的文章', body='x', cover=cover)
+
+        listing = self.client.get(reverse('blog:list'))
+        self.assertContains(listing, 'cover.png')
+        self.assertContains(listing, 'post-card-cover')
+
+        detail = self.client.get(reverse('blog:detail', args=(post.pk,)))
+        self.assertContains(detail, 'cover.png')
+        self.assertContains(detail, 'post-cover')
+
+    def test_post_without_cover_has_no_image(self):
+        Post.objects.create(title='无封面', body='x')
+
+        response = self.client.get(reverse('blog:list'))
+        self.assertNotContains(response, 'post-card-cover')
+
+
+class ViewsCountTests(TestCase):
+    """2026-11-16：阅读量计数。"""
+
+    def test_detail_increments_views(self):
+        post = Post.objects.create(title='文章', body='x')
+        self.assertEqual(post.views, 0)
+
+        self.client.get(reverse('blog:detail', args=(post.pk,)))
+        post.refresh_from_db()
+        self.assertEqual(post.views, 1)
+
+        self.client.get(reverse('blog:detail', args=(post.pk,)))
+        post.refresh_from_db()
+        self.assertEqual(post.views, 2)
+
+    def test_list_does_not_increment(self):
+        post = Post.objects.create(title='文章', body='x')
+
+        self.client.get(reverse('blog:list'))
+
+        post.refresh_from_db()
+        self.assertEqual(post.views, 0)
+
+    def test_views_shown_on_page(self):
+        post = Post.objects.create(title='文章', body='x', views=41)
+
+        response = self.client.get(reverse('blog:detail', args=(post.pk,)))
+
+        self.assertContains(response, '次浏览')
+
+
+class RelatedPostsTests(TestCase):
+    """2026-11-16：相关文章（先按标签，再按分类）。"""
+
+    def test_related_by_tag(self):
+        tag = Tag.objects.create(name='Django')
+        main = Post.objects.create(title='主文章', body='x')
+        main.tags.add(tag)
+        related = Post.objects.create(title='同标签文章', body='x')
+        related.tags.add(tag)
+        unrelated = Post.objects.create(title='无关文章', body='x')
+
+        response = self.client.get(reverse('blog:detail', args=(main.pk,)))
+
+        self.assertContains(response, '相关文章')
+        self.assertContains(response, '同标签文章')
+        self.assertNotContains(response, '无关文章')
+
+    def test_related_falls_back_to_category(self):
+        category = Category.objects.create(name='Django')
+        Post.objects.create(title='同分类文章', body='x', category=category)
+        main = Post.objects.create(title='主文章', body='x', category=category)
+        Post.objects.create(title='别的分类', body='x')
+
+        response = self.client.get(reverse('blog:detail', args=(main.pk,)))
+
+        related_titles = [p.title for p in response.context['related_posts']]
+        self.assertIn('同分类文章', related_titles)
+        self.assertNotIn('别的分类', related_titles)
+
+
+class ArchiveAndAboutTests(TestCase):
+    """2026-11-16：归档页、关于页。"""
+
+    def test_archive_page(self):
+        Post.objects.create(title='归档里的文章', body='x')
+
+        response = self.client.get(reverse('blog:archive'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '归档')
+        self.assertContains(response, timezone.localdate().strftime('%Y'))
+        self.assertContains(response, '归档里的文章')
+
+    def test_about_page(self):
+        Post.objects.create(title='文章', body='x')
+
+        response = self.client.get(reverse('blog:about'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '关于这个博客')
+        self.assertContains(response, '篇文章')
+
+
+class FeedAndSitemapTests(TestCase):
+    """2026-11-16：RSS 订阅和站点地图。"""
+
+    def test_rss_feed(self):
+        post = Post.objects.create(title='订阅里的文章', body='x')
+
+        response = self.client.get(reverse('blog:feed'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('application/rss+xml', response['Content-Type'])
+        self.assertContains(response, '订阅里的文章')
+        self.assertContains(response, reverse('blog:detail', args=(post.pk,)))
+
+    def test_sitemap(self):
+        post = Post.objects.create(title='地图里的文章', body='x')
+
+        response = self.client.get(reverse('blog:sitemap'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('application/xml', response['Content-Type'])
+        self.assertContains(response, '<urlset')
+        self.assertContains(response, reverse('blog:detail', args=(post.pk,)))

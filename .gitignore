@@ -26,6 +26,10 @@ Thumbs.db
 # 部署产物
 staticfiles/
 
+# 用户上传的文件（封面图等）——本地生成，不进 Git
+# 备份方式：把 media/ 文件夹整体拷走，或使用对象存储
+media/
+
 # 日志
 *.log
 

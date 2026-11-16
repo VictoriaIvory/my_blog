@@ -1,4 +1,4 @@
-"""数据模型（Model）—— 博客文章和分类。
+"""数据模型（Model）—— 博客文章、分类、标签。
 
 一个类 = 一张表，一个字段 = 一列。
 写完这里执行 makemigrations + migrate，Django 自动建表。
@@ -26,11 +26,36 @@ class Category(models.Model):
         return self.name
 
 
+class Tag(models.Model):
+    """文章标签（多对多，一篇可以贴多个）。
+
+    和分类的分工：分类是「这篇属于哪个栏目」（一个），
+    标签是「这篇提到了哪些关键词」（多个），也用来做相关文章推荐。
+    """
+
+    name = models.CharField('名称', max_length=20, unique=True)
+
+    class Meta:
+        verbose_name = '标签'
+        verbose_name_plural = '标签'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class Post(models.Model):
     """一篇博客文章。"""
 
     title = models.CharField('标题', max_length=100)
     body = models.TextField('正文')
+    cover = models.ImageField(
+        '封面图',
+        upload_to='covers/%Y/%m/',
+        null=True,
+        blank=True,
+        help_text='可选。列表页显示成卡片顶部的大图，建议 16:9。',
+    )
     category = models.ForeignKey(
         Category,
         verbose_name='分类',
@@ -39,7 +64,14 @@ class Post(models.Model):
         on_delete=models.SET_NULL,   # 分类被删，文章还在，只是变回"未分类"
         related_name='posts',
     )
+    tags = models.ManyToManyField(
+        Tag,
+        verbose_name='标签',
+        blank=True,
+        related_name='posts',
+    )
     is_published = models.BooleanField('已发布', default=True)
+    views = models.PositiveIntegerField('阅读量', default=0, editable=False)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
 

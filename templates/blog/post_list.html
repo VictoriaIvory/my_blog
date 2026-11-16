@@ -21,12 +21,14 @@
       <strong>{{ category_count }}</strong>
       <span>个分类</span>
     </div>
-    {% if latest_post %}
     <div class="stat">
-      <strong>{{ latest_post.created_at|date:"n 月 j 日" }}</strong>
-      <span>最近更新</span>
+      <strong>{{ tag_count }}</strong>
+      <span>个标签</span>
     </div>
-    {% endif %}
+    <div class="stat">
+      <strong>{{ total_views }}</strong>
+      <span>次阅读</span>
+    </div>
   </div>
 </section>
 {% endif %}
@@ -39,45 +41,71 @@
     </svg>
     <input type="search" name="q" value="{{ q }}" placeholder="搜索标题或正文…" aria-label="搜索文章">
     {% if current_category %}<input type="hidden" name="category" value="{{ current_category.name }}">{% endif %}
+    {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag.name }}">{% endif %}
     <button type="submit">搜索</button>
   </form>
 
   <nav class="category-nav" aria-label="分类">
-    <a href="{% url 'blog:list' %}" class="{% if not current_category %}active{% endif %}">全部</a>
+    <a href="{% url 'blog:list' %}" class="{% if not current_category and not current_tag %}active{% endif %}">全部</a>
     {% for cat in categories %}
       <a href="{% url 'blog:list' %}?category={{ cat.name|urlencode }}"
          class="{% if current_category and current_category.pk == cat.pk %}active{% endif %}">{{ cat.name }}</a>
     {% endfor %}
   </nav>
+
+  {% if tags %}
+  <nav class="tag-nav" aria-label="标签">
+    <span class="tag-nav-label">标签</span>
+    {% for t in tags %}
+      <a href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}"
+         class="{% if current_tag and current_tag.pk == t.pk %}active{% endif %}">{{ t.name }}<span class="tag-count">{{ t.post_count }}</span></a>
+    {% endfor %}
+  </nav>
+  {% endif %}
 </section>
 
 <div class="section-head">
-  <h2>{% if q or current_category %}筛选结果{% else %}最新文章{% endif %}</h2>
+  <h2>{% if q or current_category or current_tag %}筛选结果{% else %}最新文章{% endif %}</h2>
   <span class="section-meta">
     共 {{ total_count }} 篇
     {% if q %}· 关键词「{{ q }}」{% endif %}
     {% if current_category %}· 分类「{{ current_category.name }}」{% endif %}
-    {% if q or current_category %}<a href="{% url 'blog:list' %}" class="clear-filter">清除</a>{% endif %}
+    {% if current_tag %}· 标签「{{ current_tag.name }}」{% endif %}
+    {% if q or current_category or current_tag %}<a href="{% url 'blog:list' %}" class="clear-filter">清除</a>{% endif %}
   </span>
 </div>
 
 {% if posts %}
   <div class="post-list">
     {% for post in posts %}
-      <article class="post-card">
-        <div class="post-card-top">
-          {% if post.category %}
-            <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+      <article class="post-card{% if post.cover %} has-cover{% endif %}">
+        {% if post.cover %}
+          <a class="post-card-cover" href="{% url 'blog:detail' post.pk %}" tabindex="-1" aria-hidden="true">
+            <img src="{{ post.cover.url }}" alt="" loading="lazy">
+          </a>
+        {% endif %}
+        <div class="post-card-body">
+          <div class="post-card-top">
+            {% if post.category %}
+              <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+            {% endif %}
+            <time class="post-date" datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y-m-d" }}</time>
+            <span class="dot" aria-hidden="true">·</span>
+            <span class="read-time">约 {{ post.reading_time }} 分钟</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span class="view-count">{{ post.views }} 次浏览</span>
+          </div>
+          <h3 class="post-card-title">
+            <a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a>
+          </h3>
+          <p class="post-card-summary">{{ post.summary }}</p>
+          {% if post.tags.all %}
+            <p class="post-card-tags">
+              {% for t in post.tags.all %}<a class="tag tag-light" href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}</a>{% endfor %}
+            </p>
           {% endif %}
-          <time class="post-date" datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y-m-d" }}</time>
-          <span class="dot" aria-hidden="true">·</span>
-          <span class="read-time">约 {{ post.reading_time }} 分钟</span>
+          <a class="post-card-more" href="{% url 'blog:detail' post.pk %}">阅读全文 <span aria-hidden="true">→</span></a>
         </div>
-        <h3 class="post-card-title">
-          <a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a>
-        </h3>
-        <p class="post-card-summary">{{ post.summary }}</p>
-        <a class="post-card-more" href="{% url 'blog:detail' post.pk %}">阅读全文 <span aria-hidden="true">→</span></a>
       </article>
     {% endfor %}
   </div>
@@ -113,10 +141,10 @@
   {% endif %}
 {% else %}
   <div class="empty">
-    <p class="empty-title">{% if q or current_category %}没有找到符合条件的文章{% else %}还没有文章{% endif %}</p>
+    <p class="empty-title">{% if q or current_category or current_tag %}没有找到符合条件的文章{% else %}还没有文章{% endif %}</p>
     <p class="empty-desc">
-      {% if q or current_category %}
-        换个关键词试试，或者 <a href="{% url 'blog:list' %}">看看全部文章</a>。
+      {% if q or current_category or current_tag %}
+        换个关键词或标签试试，或者 <a href="{% url 'blog:list' %}">看看全部文章</a>。
       {% else %}
         去 <a href="/admin/">后台</a> 写第一篇吧。
       {% endif %}

@@ -23,9 +23,10 @@
         </span>
       </a>
       <nav class="site-nav" aria-label="站点导航">
-        <a href="{% url 'blog:list' %}" class="{% if request.resolver_match.url_name == 'list' %}active{% endif %}">文章</a>
+        <a href="{% url 'blog:list' %}" class="{% if request.resolver_match.url_name == 'list' or request.resolver_match.url_name == 'detail' %}active{% endif %}">文章</a>
+        <a href="{% url 'blog:archive' %}" class="{% if request.resolver_match.url_name == 'archive' %}active{% endif %}">归档</a>
+        <a href="{% url 'blog:about' %}" class="{% if request.resolver_match.url_name == 'about' %}active{% endif %}">关于</a>
         <a href="/admin/" target="_blank" rel="noopener">写文章</a>
-        <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub</a>
       </nav>
     </div>
   </header>
@@ -42,7 +43,9 @@
       </div>
       <div class="footer-links">
         <a href="{% url 'blog:list' %}">首页</a>
-        <a href="/admin/" target="_blank" rel="noopener">后台</a>
+        <a href="{% url 'blog:archive' %}">归档</a>
+        <a href="{% url 'blog:about' %}">关于</a>
+        <a href="{% url 'blog:feed' %}">RSS</a>
         <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub</a>
       </div>
       <p class="footer-copy">© 2026 · 用 Django 5.2 写的</p>

@@ -137,6 +137,12 @@ STATIC_URL = 'static/'
 # 项目级静态文件目录（放全站共用的 CSS）
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# 用户上传的文件（封面图等）——2026-11-16 加
+# STATIC 是「代码带的资源」，MEDIA 是「运行后上传的文件」，
+# 两者在开发/部署时的处理方式不一样，Django 要求分开配置。
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

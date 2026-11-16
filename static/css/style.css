@@ -169,8 +169,9 @@ main.wrap {
 
 .hero-stats {
   display: flex;
+  flex-wrap: wrap;
   gap: 40px;
-  max-width: 580px;
+  max-width: 640px;
   padding-top: 24px;
   border-top: 1px solid var(--line);
 }
@@ -323,7 +324,8 @@ main.wrap {
 }
 
 .post-card {
-  padding: 26px 30px 24px;
+  padding: 0;
+  overflow: hidden;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -336,6 +338,51 @@ main.wrap {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
   border-color: var(--line-strong);
+}
+
+/* 卡片封面：固定高度 300px，横向铺满卡片，图片按 cover 裁切 */
+.post-card-cover {
+  display: block;
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
+.post-card-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .45s ease;
+}
+
+.post-card:hover .post-card-cover img { transform: scale(1.03); }
+
+/* 卡片正文区（封面在外面，所以内边距挪到这里） */
+.post-card-body { padding: 26px 30px 24px; }
+
+/* 卡片底部标签 */
+.post-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 14px;
+}
+
+.tag-light {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 2px 9px;
+}
+
+.tag-light:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 .post-card-top {
@@ -725,6 +772,293 @@ main.wrap {
 
 .back a:hover { text-decoration: underline; }
 
+/* ---------- 标签筛选条 ---------- */
+.tag-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-nav-label {
+  margin-right: 2px;
+  font-size: 11.5px;
+  letter-spacing: .16em;
+  color: var(--muted);
+}
+
+.tag-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  text-decoration: none;
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+
+.tag-nav a:hover { border-color: var(--brand); color: var(--brand); }
+
+.tag-nav a.active {
+  background: var(--brand-soft);
+  border-style: solid;
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.tag-nav .tag-count { font-size: 11px; color: var(--muted); }
+
+.tag-nav a.active .tag-count { color: var(--brand); }
+
+/* ---------- 详情页封面与标签 ---------- */
+.post-cover {
+  margin: 0 0 34px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.post-cover img {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  object-fit: cover;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* ---------- 相关文章 ---------- */
+.related {
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.related-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-size: 19px;
+}
+
+.related-title::before {
+  content: "";
+  width: 6px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--brand);
+}
+
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.related-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.related-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--line-strong);
+}
+
+.related-cover {
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
+.related-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.related-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.related-cat {
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--brand);
+}
+
+.related-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.related-meta { font-size: 11.5px; color: var(--muted); }
+
+/* ---------- 通用页面头（归档 / 关于） ---------- */
+.page-header {
+  padding: 48px 0 28px;
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-eyebrow {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .24em;
+  color: var(--brand);
+}
+
+.page-title {
+  margin: 0 0 10px;
+  font-size: 36px;
+  letter-spacing: -.02em;
+}
+
+.page-desc { margin: 0; font-size: 14.5px; color: var(--muted); }
+
+/* ---------- 归档页 ---------- */
+.archive { max-width: 780px; }
+
+.archive-group { margin-bottom: 38px; }
+
+.archive-month {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  font-size: 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.archive-year { font-size: 15px; font-weight: 700; color: var(--brand); }
+
+.archive-month-num { color: var(--ink-2); }
+
+.archive-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.archive-list { margin: 0; padding: 0; list-style: none; }
+
+.archive-item a {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 9px 8px;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background .12s ease;
+}
+
+.archive-item a:hover { background: var(--brand-soft); }
+
+.archive-date {
+  flex: 0 0 44px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-title { font-size: 15.5px; }
+
+/* ---------- 关于页 ---------- */
+.about { max-width: 780px; }
+
+.about-section { margin-bottom: 42px; }
+
+.about-section h2 {
+  margin: 0 0 12px;
+  padding-left: 12px;
+  font-size: 20px;
+  border-left: 4px solid var(--brand);
+}
+
+.about-section p {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  line-height: 1.9;
+}
+
+.about-section a { color: var(--brand); }
+
+.about-table {
+  width: 100%;
+  font-size: 14.5px;
+  border-collapse: collapse;
+}
+
+.about-table th {
+  width: 90px;
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 500;
+  color: var(--muted);
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.about-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.about-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 36px;
+  margin: 6px 0 18px;
+}
+
+.about-stat strong {
+  display: block;
+  font-size: 26px;
+  color: var(--brand);
+  letter-spacing: -.01em;
+}
+
+.about-stat span { font-size: 12.5px; color: var(--muted); }
+
+.about code {
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: .9em;
+  background: #f3efe6;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
 /* ---------- 404 ---------- */
 .not-found {
   padding: 90px 20px 100px;
@@ -823,7 +1157,7 @@ main.wrap {
   .hero-stats { gap: 28px; }
   .stat strong { font-size: 21px; }
 
-  .post-card { padding: 22px 22px 20px; }
+  .post-card-body { padding: 22px 22px 20px; }
   .post-card-title { font-size: 21px; }
   .post-card-summary { -webkit-line-clamp: 3; }
 
@@ -838,16 +1172,24 @@ main.wrap {
 
   .post-nav { grid-template-columns: 1fr; }
 
+  .related-grid { grid-template-columns: 1fr 1fr; }
+
+  .page-title { font-size: 28px; }
+  .page-header { padding-top: 36px; }
+
   .footer-inner { flex-direction: column; align-items: flex-start; }
 }
 
 @media (max-width: 480px) {
-  /* 手机放不下三个导航项时，只留「文章 / 写文章」，GitHub 在页脚还有 */
-  .site-nav a:last-child { display: none; }
+  /* 手机放不下四个导航项时，只留「文章 / 归档 / 写文章」，关于在页脚还有 */
+  .site-nav a:nth-child(3) { display: none; }
   .hero-title { font-size: 29px; }
-  .hero-stats { gap: 22px; }
+  .hero-stats { gap: 20px 26px; }
   .post-card-title { font-size: 19.5px; overflow-wrap: anywhere; }
   .post-kicker { font-size: 12.5px; }
   .post-body h2 { padding-left: 10px; border-left-width: 3px; }
   .post-body code { overflow-wrap: anywhere; }
+  .related-grid { grid-template-columns: 1fr; }
+  .archive-date { flex-basis: 38px; }
+  .about-stats { gap: 22px; }
 }
