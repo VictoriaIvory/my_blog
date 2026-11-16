@@ -52,7 +52,18 @@ class Post(models.Model):
         return self.title
 
     @property
+    def body_html(self):
+        """正文渲染成 HTML（阶段 3）。
+
+        模板里写 {{ post.body_html|safe }}。
+        Markdown 渲染 + 白名单清洗都在 blog/markdown_render.py 里，
+        模型只负责把结果交出去。
+        """
+        from .markdown_render import render_markdown
+        return render_markdown(self.body)
+
+    @property
     def summary(self):
-        """列表页用的摘要：取正文前 80 个字，超出的加省略号。"""
-        text = self.body.strip().replace('\n', ' ')
-        return text if len(text) <= 80 else text[:80] + '…'
+        """列表页用的摘要：渲染后的纯文本前 80 个字，超出的加省略号。"""
+        from .markdown_render import make_summary
+        return make_summary(self.body, 80)

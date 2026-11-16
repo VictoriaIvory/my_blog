@@ -14,7 +14,7 @@
       · 更新于 {{ post.updated_at|date:"Y-m-d" }}
     {% endif %}
   </p>
-  <div class="post-body">{{ post.body|linebreaks }}</div>
+  <div class="post-body">{{ post.body_html|safe }}</div>
 </article>
 
 <p class="back"><a href="{% url 'blog:list' %}">← 返回首页</a></p>
