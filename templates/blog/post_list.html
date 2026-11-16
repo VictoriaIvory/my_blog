@@ -48,7 +48,19 @@
         <span class="disabled">← 上一页</span>
       {% endif %}
 
-      <span class="pager-info">第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页</span>
+      <span class="pager-pages">
+        {% for num in page_numbers %}
+          {% if num %}
+            {% if num == page_obj.number %}
+              <span class="current">{{ num }}</span>
+            {% else %}
+              <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}">{{ num }}</a>
+            {% endif %}
+          {% else %}
+            <span class="gap">…</span>
+          {% endif %}
+        {% endfor %}
+      </span>
 
       {% if page_obj.has_next %}
         <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">下一页 →</a>

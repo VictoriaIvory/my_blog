@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}页面走丢了 · 我的博客{% endblock %}
+
+{% block content %}
+<div class="not-found">
+  <p class="code">404</p>
+  <h1>这个页面走丢了</h1>
+  <p>可能是链接写错了，也可能是文章被删了。</p>
+  <p><a href="{% url 'blog:list' %}">← 回首页看看</a></p>
+</div>
+{% endblock %}

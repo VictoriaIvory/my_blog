@@ -1,0 +1,30 @@
+name: tests
+
+# 每次 push / PR 自动跑测试：仓库首页能看到绿勾，组长点进来就知道代码是好的。
+# 注意：CI 里没有 .env 文件，所以要用环境变量提供 DJANGO_SECRET_KEY（settings.py 缺它就会报错）。
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉代码
+        uses: actions/checkout@v4
+
+      - name: 装 Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 装依赖
+        run: pip install -r requirements.txt
+
+      - name: 跑测试
+        env:
+          DJANGO_SECRET_KEY: ci-only-not-a-real-secret
+          DJANGO_DEBUG: 'True'
+          DJANGO_ALLOWED_HOSTS: '127.0.0.1,localhost,testserver'
+        run: python manage.py test

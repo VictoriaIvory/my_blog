@@ -21,6 +21,29 @@ from .models import Category, Post
 PAGE_SIZE = 5
 
 
+def _page_numbers(page_obj):
+    """分页条要显示哪些页码。
+
+    页数少（≤7）就全显示；多了只显示首尾两页 + 当前页附近两页，
+    中间用 None 表示省略号，由模板渲染成「…」。
+    """
+    total = page_obj.paginator.num_pages
+    current = page_obj.number
+    if total <= 7:
+        return list(range(1, total + 1))
+
+    candidates = {1, 2, total - 1, total, current - 1, current, current + 1}
+    numbers, previous = [], 0
+    for number in sorted(candidates):
+        if not 1 <= number <= total:
+            continue
+        if previous and number - previous > 1:
+            numbers.append(None)   # 省略号占位
+        numbers.append(number)
+        previous = number
+    return numbers
+
+
 def post_list(request):
     """首页：列出已发布的文章，支持分类筛选、搜索、分页。"""
     # 1. 先把「只显示已发布」这个底线定下来，后面的筛选都在它之上叠加
@@ -56,6 +79,7 @@ def post_list(request):
         'current_category': category,
         'q': q,
         'querystring': querystring,
+        'page_numbers': _page_numbers(page_obj),
         'total_count': paginator.count,
     }
     return render(request, 'blog/post_list.html', context)

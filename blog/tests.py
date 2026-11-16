@@ -4,7 +4,7 @@
 每个测试验证一条行为，改坏代码时能立刻发现。
 """
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -229,3 +229,98 @@ class CategoryAdminTests(TestCase):
         response = self.client.get(reverse('admin:blog_category_changelist'))
 
         self.assertEqual(response.status_code, 200)
+
+
+class MarkdownRenderTests(TestCase):
+    """阶段 3：正文 Markdown 渲染 + 安全清洗。"""
+
+    def _detail_html(self, body):
+        post = Post.objects.create(title='Markdown 测试', body=body)
+        response = self.client.get(reverse('blog:detail', args=(post.pk,)))
+        return response.content.decode()
+
+    def test_bold_renders(self):
+        html = self._detail_html('这是**粗体**，这是*斜体*')
+        self.assertIn('<strong>粗体</strong>', html)
+        self.assertIn('<em>斜体</em>', html)
+
+    def test_heading_and_list_render(self):
+        html = self._detail_html('## 小标题\n\n- 第一项\n- 第二项')
+        self.assertIn('<h2>小标题</h2>', html)
+        self.assertIn('<li>第一项</li>', html)
+
+    def test_fenced_code_is_highlighted(self):
+        html = self._detail_html('```python\nprint("hello")\n```')
+        self.assertIn('codehilite', html)          # Pygments 外层容器
+        self.assertIn('print', html)                # 代码内容在
+        self.assertIn('<span class="nb">print</span>', html)  # 内置函数被高亮
+
+    def test_table_renders(self):
+        html = self._detail_html('| 名称 | 值 |\n| --- | --- |\n| a | 1 |')
+        self.assertIn('<table>', html)
+        self.assertIn('<th>名称</th>', html)
+
+    def test_script_tag_is_stripped(self):
+        """正文里混进 <script> 不会被执行，也不会出现在页面源码里。"""
+        html = self._detail_html('正常文字 <script>alert("xss")</script> 结束')
+        self.assertNotIn('<script', html)
+        self.assertIn('正常文字', html)
+
+    def test_img_onerror_is_stripped(self):
+        html = self._detail_html('<img src="x" onerror="alert(1)">')
+        self.assertNotIn('onerror', html)
+
+    def test_summary_strips_markdown_marks(self):
+        """列表页摘要不能把 **、`、[]() 这些记号原样显示。"""
+        Post.objects.create(
+            title='摘要测试',
+            body='**粗体**和`代码`，还有 [链接](https://example.com)',
+        )
+        response = self.client.get(reverse('blog:list'))
+        summary = response.context['posts'][0].summary
+
+        for mark in ('**', '`', ']('):
+            self.assertNotIn(mark, summary)
+        self.assertIn('粗体', summary)
+
+    def test_draft_body_not_rendered_to_public(self):
+        """草稿即使写了 Markdown 也不该出现在前台。"""
+        Post.objects.create(title='草稿', body='**秘密**', is_published=False)
+        response = self.client.get(reverse('blog:list'))
+        self.assertNotContains(response, '秘密')
+
+
+class PagerNumbersTests(TestCase):
+    """阶段 3 顺手补的：分页条显示页码，页数多了用省略号。"""
+
+    def test_page_numbers_rendered(self):
+        for i in range(1, 8):   # 7 篇 / 每页 5 → 2 页
+            Post.objects.create(title=f'文章{i}', body='x')
+
+        first = self.client.get(reverse('blog:list'))
+        self.assertContains(first, 'pager-pages')
+        self.assertContains(first, 'page=2')
+
+        second = self.client.get(reverse('blog:list'), {'page': 2})
+        self.assertContains(second, 'current')
+
+    def test_many_pages_use_ellipsis(self):
+        for i in range(1, 41):  # 40 篇 / 每页 5 → 8 页，需要省略号
+            Post.objects.create(title=f'文章{i}', body='x')
+
+        response = self.client.get(reverse('blog:list'), {'page': 5})
+        self.assertContains(response, '…')
+
+
+class NotFoundPageTests(TestCase):
+    """阶段 3：生产模式下的 404 页用自己的模板，而不是 Django 默认页。"""
+
+    def test_404_template_used_when_debug_off(self):
+        with override_settings(
+            DEBUG=False,
+            ALLOWED_HOSTS=['testserver', '127.0.0.1', 'localhost'],
+        ):
+            response = self.client.get('/no-such-page/')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, '页面走丢了', status_code=404)
