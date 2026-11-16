@@ -18,6 +18,19 @@
 2. 《给博客加分类、搜索和分页，三个我以为半小时能搞定的东西》（2026-11-16）
 3. 《让室友用手机给我的投票 demo 投票：ALLOWED_HOSTS 那点事》（2026-11-16）
 
+## 已经能做什么（v1.1，2026-11-16）
+
+| 功能 | 说明 |
+|---|---|
+| 写文章 | 后台写 Markdown：标题、列表、表格、代码块、图片；可传封面图 |
+| 分类 / 标签 | 分类是栏目（一个），标签是关键词（多个）；都能筛选 |
+| 搜索 | 标题 + 正文，不区分大小写，和分类/标签可叠加 |
+| 分页 / 归档 | 每页 5 篇；归档页按年月分组 |
+| 阅读量 | 详情页每次阅读 +1，列表和详情都显示 |
+| 相关文章 | 详情页底部按标签、再按分类推荐 |
+| 订阅 / 收录 | RSS 订阅 `/feed/`、站点地图 `/sitemap.xml` |
+| 关于页 | 介绍博客、技术栈、现状 |
+
 ## 环境
 
 | 项 | 版本 |
@@ -25,7 +38,7 @@
 | Python | 3.12.10 |
 | Django | 5.2.18 LTS |
 | 数据库 | SQLite |
-| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments） |
+| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments + Pillow） |
 
 > ⚠️ **不能用 Python 3.14**：Django 5.2 官方支持 3.10–3.13。
 > 建虚拟环境时确认 `python --version` 是 3.12。
@@ -46,7 +59,7 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 # 3 建表
 python manage.py migrate
 
-# 4 造演示数据（可选）：3 个分类 + 1 篇演示文章
+# 4 造演示数据（可选）：3 个分类、3 个标签 + 1 篇演示文章
 python manage.py seed_posts
 
 # 5 建后台账号（自己定用户名密码，仓库里不放密码）
@@ -62,9 +75,14 @@ python manage.py runserver
 |---|---|
 | 首页（文章列表） | <http://127.0.0.1:8000/> |
 | 分类筛选 | <http://127.0.0.1:8000/?category=Django> |
+| 标签筛选 | <http://127.0.0.1:8000/?tag=Django> |
 | 关键词搜索 | <http://127.0.0.1:8000/?q=饼图> |
 | 分页 | <http://127.0.0.1:8000/?page=2> |
 | 文章详情 | <http://127.0.0.1:8000/post/1/> |
+| 归档 | <http://127.0.0.1:8000/archive/> |
+| 关于 | <http://127.0.0.1:8000/about/> |
+| RSS 订阅 | <http://127.0.0.1:8000/feed/> |
+| 站点地图 | <http://127.0.0.1:8000/sitemap.xml> |
 | 后台（写文章） | <http://127.0.0.1:8000/admin/> |
 
 停止服务器：终端里按 `Ctrl + C`。
@@ -81,23 +99,28 @@ myblog/
 │   ├── settings.py         # 全局配置：应用、数据库、时区、静态文件
 │   └── urls.py             # 总路由：/admin/ 和 /（交给 blog）
 ├── blog/                   # 博客应用
-│   ├── models.py           # Category 分类 + Post 文章（带外键）
+│   ├── models.py           # Category 分类 + Tag 标签 + Post 文章（外键/多对多/封面/阅读量）
 │   ├── markdown_render.py  # Markdown → HTML + 白名单清洗（阶段 3）
-│   ├── admin.py            # 后台配置（两个模型）
-│   ├── views.py            # 列表（筛选/搜索/分页）、详情
-│   ├── urls.py             # 2 条路由
-│   ├── tests.py            # 37 个测试
-│   ├── migrations/         # 建表脚本（自动生成，不要手改）
-│   └── management/commands/seed_posts.py   # 造演示分类和文章
+│   ├── admin.py            # 后台配置（三个模型、封面预览）
+│   ├── views.py            # 列表（筛选/搜索/分页）、详情（阅读量/相关）、归档、关于
+│   ├── feeds.py            # RSS 订阅源 /feed/
+│   ├── sitemap.py          # 站点地图 /sitemap.xml
+│   ├── urls.py             # 6 条路由
+│   ├── tests.py            # 51 个测试
+│   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0003）
+│   └── management/commands/seed_posts.py   # 造演示分类/标签/文章
 ├── templates/
 │   ├── base.html           # 全站外壳（顶栏 + 页脚）
 │   ├── 404.html            # 404 页面（DEBUG=False 时生效）
 │   └── blog/
-│       ├── post_list.html  # 列表页（头图 + 搜索 + 分类 + 卡片 + 分页）
-│       └── post_detail.html# 详情页（正文 Markdown + 目录 + 上下篇）
+│       ├── post_list.html  # 列表页（头图 + 搜索 + 分类/标签 + 卡片 + 分页）
+│       ├── post_detail.html# 详情页（封面 + 目录 + 正文 + 上下篇 + 相关）
+│       ├── archive.html    # 归档页（按年月分组）
+│       └── about.html      # 关于页
 ├── static/css/
-│   ├── style.css           # 全站样式（约 850 行，CSS 变量 + 响应式，无框架）
+│   ├── style.css           # 全站样式（约 1050 行，CSS 变量 + 响应式，无框架）
 │   └── pygments.css        # 代码高亮配色（Pygments 生成，勿手改）
+├── media/                  # 用户上传的封面图（不进 Git，见 .gitignore）
 └── .github/workflows/tests.yml  # GitHub Actions：每次 push 自动跑测试
 ```
 
@@ -138,6 +161,17 @@ myblog/
 - **配套**：`Post.reading_time` 阅读时间估算；Markdown 标题生成中文锚点（目录跳转用）
 - **测试从 33 个加到 37 个**：头图只出现在首页、目录生成、阅读时间、上下篇链接
 
+**功能扩展（2026-11-16，解决"只能写文字"）**
+
+- **封面图**：`Post.cover` 图片字段（需 Pillow），后台可传，列表卡片和详情页都显示
+- **标签**：`Tag` 模型 + 多对多；`/?tag=Django` 筛选；卡片/详情显示；后台可管理
+- **阅读量**：`Post.views`，详情页每次阅读 +1（数据库 `F` 表达式自增）
+- **相关文章**：详情页底部先按共同标签、再按同分类推荐 3 篇
+- **归档页**：`/archive/` 按年月分组
+- **关于页**：`/about/` 介绍博客、技术栈、现状
+- **RSS / 站点地图**：`/feed/` 用 Django syndication，`/sitemap.xml` 手写 XML
+- **测试从 37 个加到 51 个**：标签、封面、阅读量、相关、归档、关于、RSS、sitemap
+
 ## 用到的 Django 知识点
 
 | 知识点 | 在哪 |
@@ -171,7 +205,15 @@ myblog/
 | 目录锚点 | Markdown `toc` 扩展 + 自定义中文 slugify（默认会删掉中文） |
 | 上一篇 / 下一篇 | 详情页按 pk 找相邻的已发布文章 |
 | CSS 变量与响应式 | `style.css` 里 `:root` 定义配色/圆角/阴影，760px / 480px 两档断点 |
-| 测试 | `blog/tests.py`（37 个） |
+| 图片字段 `ImageField` + `MEDIA_ROOT` | `Post.cover`：上传、存储、模板里 `post.cover.url` |
+| 多对多 `ManyToManyField` | `Post.tags`，一篇多标签，`tag.posts` 反查 |
+| `F` 表达式 | 阅读量自增：`update(views=F('views') + 1)`，避免并发覆盖 |
+| `aggregate(Sum(...))` | 首页「总阅读量」统计 |
+| 多表筛选 `filter(tags=...)` | 标签筛选（多对多） |
+| RSS syndication | `blog/feeds.py`（`django.contrib.syndication`） |
+| 站点地图 | `blog/sitemap.py`（手写 XML，不引 sites 框架） |
+| 归档分组 | 视图里按 `(年, 月)` 分组，模板只渲染 |
+| 测试 | `blog/tests.py`（51 个） |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -241,12 +283,38 @@ Python-Markdown 的 `toc` 扩展默认会删掉非 ASCII 字符，中文标题�
 阅读时间是列表页和详情页都需要的轻量信息（字数 ÷ 400）；上一篇/下一篇让人读完后
 能继续看，比只有「返回首页」自然。两者都不需要额外依赖，各加几行代码。
 
+**功能扩展：为什么加封面图不加富文本编辑器？**
+组长/读者反馈"只能写文字"，最直接缺的是**图片**。但引富文本编辑器（如 CKEditor）
+会引入一大包前端资源，还容易和 Markdown 打架。所以只加一个可选的封面图：
+列表卡片和详情页立刻有视觉重点，正文继续用 Markdown（图片本来就能写 `![]()`）。
+
+**功能扩展：为什么标签已经有了分类还要加？**
+分类是「这篇属于哪个栏目」，只能有一个；标签是「这篇提到了哪些关键词」，可以有多个，
+而且能用来做相关文章推荐（同标签最优先）。两者不是替代关系。
+筛选方式保持一致：`?category=` / `?tag=`。
+
+**功能扩展：阅读量为什么用 `F` 表达式？**
+`post.views += 1; post.save()` 在并发访问时会互相覆盖。改成
+`Post.objects.filter(pk=...).update(views=F('views') + 1)`，
+自增交给数据库，不会丢计数。代价是要 `refresh_from_db()` 才能拿到新值。
+
+**功能扩展：RSS 和站点地图为什么不装第三方包？**
+RSS 用 Django 自带的 `contrib.syndication`；sitemap 只有十几行 XML，
+没必要为了它再装 `sites` 框架。少一个依赖，部署时少一个坑。
+
+**功能扩展：封面图为什么不进 Git？**
+`media/` 是「运行后上传的文件」，和 `static/`（代码带的资源）性质不同：
+换台电脑/部署时应该单独备份或传到对象存储。所以 `.gitignore` 排除 `media/`，
+README 的部署一节会写清楚怎么处理。
+
 ## 下一步（阶段 4：部署）
 
 - 部署到 PythonAnywhere（免费、支持 Django + SQLite）或自己的服务器
 - 生产配置：`DEBUG=False`、`ALLOWED_HOSTS` 写死域名、WhiteNoise 处理静态文件、
   按 `manage.py check --deploy` 补齐安全项
 - 数据库：`db.sqlite3` 不进 Git，部署后要单独上传/备份，先写一份《部署手册》
+- **上传文件**：`media/` 同样不进 Git，部署后要把 `media/` 拷到服务器，
+  并在部署平台配置 `MEDIA_ROOT` 的访问方式
 - 线上验收：手机能打开、后台能写文章、链接发给组长能点开
 
 > 文章已按阶段 4 的要求写到 3 篇；阶段 4 只剩部署这一件事。
