@@ -10,7 +10,7 @@
 | **1** | 项目骨架 + 文章模型 + 后台 + 列表/详情页 | ✅ 2026-11-07 |
 | **2** | 分类 + 搜索 + 分页 | ✅ 2026-11-15 |
 | **3** | Markdown 渲染 + 代码高亮 + 样式打磨 | ✅ 2026-11-16 |
-| 4 | 部署上线（加固完成、部署手册已写，待注册 PythonAnywhere） | ⚪ 进行中 |
+| 4 | 部署上线 | — **不做**（本地项目，无云端需求；部署手册留档备用） |
 
 ## 文章（3 篇）
 
@@ -178,6 +178,10 @@ myblog/
 - **测试从 37 个加到 51 个**：标签、封面、阅读量、相关、归档、关于、RSS、sitemap
 
 **部署加固 + 性能优化（2026-11-23）**
+
+> 背景：一度打算部署到云端，顺手把生产配置也做了；后来确定**按本地项目交付、不上线**。
+> 这些改动本地也用得上（DEBUG 默认值、日志、备份、性能、SEO、可访问性），
+> 只有 WhiteNoise / HTTPS 开关 / collectstatic 是部署专用的，`DEBUG=True` 时不影响本地。
 
 - **安全默认值**：`DEBUG` 默认改成 `False`（忘配 `.env` 也不会带调试页上线）
 - **HTTPS 开关**：`.env` 里 `DJANGO_HTTPS=True` 自动开启 HTTPS 跳转、安全 Cookie、
@@ -366,30 +370,35 @@ HSTS 本身已开（1 小时），够用；这属于「知道警告在说什么�
 **部署：为什么写部署手册而不是记在聊天里？**
 部署涉及「代码 + 数据库 + 上传文件 + 环境变量 + 平台映射」五样东西，
 聊天记录会丢、平台界面会变。写成 `docs/04_部署手册.md`，照着做能复现，
-换电脑/重装也能用。
+换电脑/重装也能用。**后来确定这个项目不做云端部署，手册留作以后可选的参考。**
 
-## 下一步（阶段 4：部署）
+## 下一步（本地交付，不部署）
 
-**代码这边的部署加固已经做完**，可以直接上线，只差注册账号。步骤见
-[`docs/04_部署手册.md`](docs/04_部署手册.md)，核心是：
+**这个项目按本地项目交付，不需要上传到云端。** 平时就是：
 
-1. 注册 PythonAnywhere，建 Manual configuration 的 Web 应用（Python 3.12）
-2. Bash 里 `git clone` + 建 venv + `pip install -r requirements.txt`
-3. 写 `.env`：`DEBUG=False`、`ALLOWED_HOSTS=用户名.pythonanywhere.com`、`HTTPS=True`
-4. 上传 `db.sqlite3` 和 `media/`（或从空站 `migrate` + `createsuperuser`）
-5. `collectstatic`，Web 页配 WSGI、`/static/` → `staticfiles`、`/media/` → `media`
-6. Reload，按手册第 7 节验收（手机打开、后台能写、RSS/封面图正常）
+```powershell
+cd D:\ai宝贝\12_我的博客\myblog
+.\.venv\Scripts\Activate.ps1
+python manage.py runserver
+```
 
-> PythonAnywhere 2026 年免费额度：100 CPU 秒/天、512 MiB 磁盘、1 个 Web 应用；
-> **1 个月没人访问会过期**（演示期间保持每周打开一次即可）。
-> 参考：[免费账户功能](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)、
-> [2026 调整公告](https://blog.pythonanywhere.com/221/)
+浏览器打开 <http://127.0.0.1:8000/>；或者直接双击 `启动.bat`。
 
-上线后还剩的收尾：
+给组长验收用「本地演示」代替线上链接：
 
-- [ ] 第 4 篇文章《把博客部署上线踩的坑》（把部署过程写成内容）
-- [ ] 给组长发线上链接 + 截图（话术在 `12_我的博客/汇报材料_20261116/汇报消息.md`）
-- [ ] 每周 `python manage.py backup` 一次，下载备份到本地
+- [ ] 本地演示包：`启动.bat` + 30 秒演示脚本 + 截图（`12_我的博客/汇报材料_*`）
+- [ ] 组长要看时，当面打开电脑演示；不在场就发截图/录屏（Win+G 录 30 秒）
+- [ ] 每周跑一次 `python manage.py backup`（数据库 + 封面图备份到 `backups/`）
+
+> 如果哪天改变主意想上线，`docs/04_部署手册.md` 里已经写好了完整步骤
+> （PythonAnywhere 免费方案），照着做即可。部署相关的配置（WhiteNoise、
+> HTTPS 开关、`STATIC_ROOT`）只在 `DEBUG=False` 时生效，本地开发完全不受影响。
+
+以后可选的加分项（都不是必须）：
+
+- 再写几篇文章（现在 3 篇，内容越多越像真博客）
+- 深色模式（纯 CSS `prefers-color-scheme`）
+- 评论 / 点赞（个人本地项目意义不大）
 
 ## 换台电脑怎么复现
 
