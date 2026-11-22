@@ -13,7 +13,9 @@
 
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q, Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 
 from .markdown_render import extract_toc
 from .models import Category, Post, Tag
@@ -55,7 +57,11 @@ def _tag_queryset():
 def post_list(request):
     """首页：列出已发布的文章，支持分类 / 标签 / 搜索 / 分页。"""
     # 1. 先把「只显示已发布」这个底线定下来，后面的筛选都在它之上叠加
-    posts = Post.objects.filter(is_published=True).select_related('category')
+    posts = (
+        Post.objects.filter(is_published=True)
+        .select_related('category')
+        .prefetch_related('tags')   # 卡片要显示标签，一次批量取，避免 N+1
+    )
 
     # 2. 搜索：标题或正文包含关键词。Q 对象用来表达「或」。
     q = request.GET.get('q', '').strip()
@@ -86,11 +92,17 @@ def post_list(request):
     params.pop('page', None)
     querystring = params.urlencode()
 
+    tags = list(_tag_queryset())
+    stats = Post.objects.filter(is_published=True).aggregate(
+        count=Count('pk'),
+        views=Sum('views'),
+    )
+
     context = {
         'page_obj': page_obj,
         'posts': page_obj.object_list,
         'categories': Category.objects.all(),
-        'tags': _tag_queryset(),
+        'tags': tags,
         'current_category': category,
         'current_tag': tag,
         'q': q,
@@ -99,11 +111,10 @@ def post_list(request):
         'total_count': paginator.count,
         # 首页头图只在「没有任何筛选、第一页」时出现
         'show_hero': not q and not category and not tag and page_obj.number == 1,
-        'published_count': Post.objects.filter(is_published=True).count(),
+        'published_count': stats['count'],
         'category_count': Category.objects.count(),
-        'tag_count': _tag_queryset().count(),
-        'total_views': Post.objects.filter(is_published=True).aggregate(
-            total=Sum('views'))['total'] or 0,
+        'tag_count': len(tags),
+        'total_views': stats['views'] or 0,
         'latest_post': Post.objects.filter(is_published=True).first(),
     }
     return render(request, 'blog/post_list.html', context)
@@ -138,7 +149,11 @@ def post_detail(request, pk):
     注意这里把 is_published=True 也写进了查询条件：
     未发布的文章直接 404，而不是让人通过改 URL 里的数字看到草稿。
     """
-    post = get_object_or_404(Post, pk=pk, is_published=True)
+    post = get_object_or_404(
+        Post.objects.select_related('category').prefetch_related('tags'),
+        pk=pk,
+        is_published=True,
+    )
 
     # 阅读量 +1：用 F 表达式在数据库里自增，避免「读出来加一再写回」的并发覆盖
     Post.objects.filter(pk=post.pk).update(views=F('views') + 1)
@@ -187,5 +202,18 @@ def about(request):
     return render(request, 'blog/about.html', {
         'published_count': Post.objects.filter(is_published=True).count(),
         'category_count': Category.objects.count(),
-        'tag_count': _tag_queryset().count(),
+        'tag_count': len(list(_tag_queryset())),
     })
+
+
+def robots(request):
+    """robots.txt：告诉搜索引擎可以抓什么，并指向站点地图。"""
+    sitemap_url = request.build_absolute_uri(reverse('blog:sitemap'))
+    lines = [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin/',
+        '',
+        f'Sitemap: {sitemap_url}',
+    ]
+    return HttpResponse('\n'.join(lines), content_type='text/plain; charset=utf-8')

@@ -12,7 +12,7 @@
   --card: #fffdf9;
   --ink: #191d21;
   --ink-2: #4a4f56;
-  --muted: #7c828a;
+  --muted: #666c74;
   --line: #e6e0d6;
   --line-strong: #d8d1c4;
   --brand: #2f6f4e;
@@ -31,6 +31,12 @@
 *,
 *::before,
 *::after { box-sizing: border-box; }
+
+/* 键盘操作时给出清晰的焦点框（鼠标点击不出现） */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 
 html { scroll-behavior: smooth; }
 
@@ -1079,7 +1085,14 @@ main.wrap {
 
 .not-found h1 { margin: 20px 0 10px; font-size: 26px; }
 
-.not-found-desc { margin: 0 0 30px; color: var(--muted); }
+.not-found-desc { margin: 0 0 26px; color: var(--muted); }
+
+/* 404 页的搜索框：居中且窄一点 */
+.not-found-search {
+  max-width: 440px;
+  margin: 0 auto 24px;
+  text-align: left;
+}
 
 .not-found-actions {
   display: flex;

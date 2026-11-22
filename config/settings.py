@@ -22,6 +22,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 
+def env_flag(name, default=False):
+    """把 .env 里的 '1/true/yes/on' 读成布尔值。"""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -35,12 +43,40 @@ if not SECRET_KEY:
     )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').strip().lower() in ('1', 'true', 'yes', 'on')
+# 默认 False——万一忘了配 .env，也不会带着 DEBUG 上线。
+# 本地开发在 .env 里显式写 DJANGO_DEBUG=True。
+DEBUG = env_flag('DJANGO_DEBUG', default=False)
 
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
     if host.strip()
+]
+
+
+# 生产环境（HTTPS）由 .env 里的 DJANGO_HTTPS=True 打开。
+# 本地开发不设，所以本地仍然可以用 http://127.0.0.1:8000/。
+HTTPS_ENABLED = env_flag('DJANGO_HTTPS', default=False)
+
+if HTTPS_ENABLED:
+    # 部署平台（PythonAnywhere 等）在反向代理上终止 HTTPS，
+    # 靠这个头告诉 Django「原始请求其实是 https」，否则会无限重定向。
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # HSTS 先设 1 小时（保守值），确认站点稳定后再调大。
+    # 免费二级域名（xxx.pythonanywhere.com）不适合提交浏览器 preload 列表，
+    # 所以 PRELOAD 保持关闭；includeSubdomains 对这个域名是安全的。
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+
+# 如果以后用到跨域表单（比如自定义域名 + 后台），在这里加允许来源，逗号分隔
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
 ]
 
 
@@ -66,6 +102,11 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# 生产环境用 WhiteNoise 直接返回静态文件；
+# 开发环境交给 Django 自己的 staticfiles，避免「staticfiles/ 不存在」的提示。
+if not DEBUG:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 ROOT_URLCONF = 'config.urls'
 
@@ -137,6 +178,20 @@ STATIC_URL = 'static/'
 # 项目级静态文件目录（放全站共用的 CSS）
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
+# collectstatic 的收集目录（不进 Git）。生产环境由 WhiteNoise 从这里取文件。
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise 的存储后端：收集时压缩，不需要 hash 清单，
+# 所以本地不跑 collectstatic 也不会报 "manifest missing"。
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
+
 # 用户上传的文件（封面图等）——2026-11-16 加
 # STATIC 是「代码带的资源」，MEDIA 是「运行后上传的文件」，
 # 两者在开发/部署时的处理方式不一样，Django 要求分开配置。
@@ -147,3 +202,34 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# 日志：生产环境出问题时能直接在平台日志里看到 traceback。
+# 本地也生效，控制台输出足够。
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '{levelname} {asctime} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

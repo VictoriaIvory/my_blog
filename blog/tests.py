@@ -272,7 +272,9 @@ class MarkdownRenderTests(TestCase):
 
     def test_img_onerror_is_stripped(self):
         html = self._detail_html('<img src="x" onerror="alert(1)">')
-        self.assertNotIn('onerror', html)
+        # 只看正文区域（页面 <head> 里的 meta description 是转义后的摘要文本）
+        body = html.split('<div class="post-body">')[1].split('</div>')[0]
+        self.assertNotIn('onerror', body)
 
     def test_summary_strips_markdown_marks(self):
         """列表页摘要不能把 **、`、[]() 这些记号原样显示。"""
@@ -444,6 +446,22 @@ class CoverImageTests(TestCase):
         response = self.client.get(reverse('blog:list'))
         self.assertNotContains(response, 'post-card-cover')
 
+    def test_wide_cover_is_shrunk_on_save(self):
+        """2026-11-23：超过 1600px 的封面自动压缩，避免列表加载 5MB 大图。"""
+        from io import BytesIO
+
+        from PIL import Image
+
+        buffer = BytesIO()
+        Image.new('RGB', (2400, 1200), (47, 111, 78)).save(buffer, format='JPEG')
+        upload = SimpleUploadedFile('wide.jpg', buffer.getvalue(), content_type='image/jpeg')
+
+        post = Post.objects.create(title='大封面', body='x', cover=upload)
+
+        with Image.open(post.cover.path) as saved:
+            self.assertEqual(saved.width, 1600)
+            self.assertEqual(saved.height, 800)
+
 
 class ViewsCountTests(TestCase):
     """2026-11-16：阅读量计数。"""
@@ -551,3 +569,117 @@ class FeedAndSitemapTests(TestCase):
         self.assertIn('application/xml', response['Content-Type'])
         self.assertContains(response, '<urlset')
         self.assertContains(response, reverse('blog:detail', args=(post.pk,)))
+
+
+class SeoTests(TestCase):
+    """2026-11-23：robots.txt / RSS 自动发现 / 分享卡片 / favicon。"""
+
+    def test_robots_txt(self):
+        response = self.client.get(reverse('blog:robots'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('text/plain', response['Content-Type'])
+        self.assertContains(response, 'Sitemap:')
+        self.assertContains(response, '/sitemap.xml')
+        self.assertContains(response, 'Disallow: /admin/')
+
+    def test_head_has_rss_favicon_and_og(self):
+        response = self.client.get(reverse('blog:list'))
+        html = response.content.decode()
+
+        self.assertIn('rel="alternate"', html)
+        self.assertIn('application/rss+xml', html)
+        self.assertIn('favicon.svg', html)
+        self.assertIn('og:title', html)
+        self.assertIn('og:url', html)
+
+    def test_detail_has_article_meta(self):
+        post = Post.objects.create(title='分享卡片测试', body='x')
+
+        response = self.client.get(reverse('blog:detail', args=(post.pk,)))
+        html = response.content.decode()
+
+        self.assertIn('og:type" content="article', html)
+        self.assertIn('分享卡片测试', html)
+        self.assertIn('article:published_time', html)
+
+
+class NotFoundSearchTests(TestCase):
+    """2026-11-23：404 页也要能搜索。"""
+
+    def test_404_has_search_box(self):
+        with override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver']):
+            response = self.client.get('/no-such-page/')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'name="q"', status_code=404)
+
+
+class CachedRenderingTests(TestCase):
+    """2026-11-23：正文/摘要缓存，避免同一页重复渲染 Markdown。"""
+
+    def test_body_html_rendered_once_per_instance(self):
+        import blog.markdown_render as renderer
+
+        calls = {'n': 0}
+        original = renderer.render_markdown
+
+        def counting(text):
+            calls['n'] += 1
+            return original(text)
+
+        renderer.render_markdown = counting
+        try:
+            post = Post.objects.create(title='缓存测试', body='## 标题\n\n**粗体**')
+            first = post.body_html
+            second = post.body_html
+        finally:
+            renderer.render_markdown = original
+
+        self.assertEqual(calls['n'], 1)
+        self.assertEqual(first, second)
+
+    def test_summary_does_not_render_html(self):
+        import blog.markdown_render as renderer
+
+        calls = {'n': 0}
+        original = renderer.render_markdown
+
+        def counting(text):
+            calls['n'] += 1
+            return original(text)
+
+        renderer.render_markdown = counting
+        try:
+            post = Post.objects.create(title='摘要缓存', body='**粗体**和`代码`')
+            post.summary
+        finally:
+            renderer.render_markdown = original
+
+        self.assertEqual(calls['n'], 0)   # 摘要只去 Markdown 记号，不渲染 HTML
+
+
+class BackupCommandTests(TestCase):
+    """2026-11-23：backup 管理命令能备份媒体文件。"""
+
+    def test_backup_copies_media(self):
+        import tempfile
+        from io import StringIO
+        from pathlib import Path
+
+        from django.core.management import call_command
+
+        with tempfile.TemporaryDirectory() as tmp:
+            media = Path(tmp) / 'media_src'
+            (media / 'covers').mkdir(parents=True)
+            (media / 'covers' / 'a.jpg').write_bytes(b'fake-image')
+            backup_dir = Path(tmp) / 'backups'
+
+            out = StringIO()
+            with override_settings(MEDIA_ROOT=str(media)):
+                call_command('backup', dir=str(backup_dir), stdout=out)
+
+            items = list(backup_dir.iterdir())
+            self.assertEqual(len(items), 1)
+            self.assertTrue((items[0] / 'media' / 'covers' / 'a.jpg').exists())
+            self.assertIn('备份完成', out.getvalue())

@@ -14,7 +14,6 @@ import re
 
 import bleach
 import markdown as md
-from django.utils.html import strip_tags
 from django.utils.safestring import mark_safe
 
 # 启用的 Markdown 扩展：
@@ -103,17 +102,40 @@ def render_markdown(text):
     return mark_safe(clean)
 
 
-def make_summary(text, length=80):
-    """从 Markdown 正文生成纯文本摘要（列表页用）。
+_CODE_FENCE_RE = re.compile(r'```[^\n]*\n?(.*?)```', re.S)
+_IMAGE_RE = re.compile(r'!\[([^\]]*)\]\([^)]*\)')
+_LINK_RE = re.compile(r'\[([^\]]+)\]\([^)]*\)')
+_INLINE_MARK_RE = re.compile(r'[#>*_`~]+')
 
-    先渲染再 strip_tags，得到的是「用户实际读到的文字」，
-    不会把 **、```、[]() 这些 Markdown 记号混进摘要。
+
+def plain_text(text):
+    """把 Markdown 正文变成纯文本（不渲染 HTML，速度快很多）。
+
+    只做「去记号」：保留文字和代码内容，去掉 ```、#、**、[文字](链接) 这类
+    结构符号。列表页摘要、字数统计都用它——之前是先渲染再 strip_tags，
+    每张卡片都要跑一遍 Markdown + bleach，文章多了会明显变慢。
     """
     if not text:
         return ''
 
-    plain = strip_tags(render_markdown(text))
-    plain = re.sub(r'\s+', ' ', plain).strip()
+    # 代码围栏只去围栏本身，保留代码内容
+    plain = _CODE_FENCE_RE.sub(lambda m: m.group(1), text)
+    # 图片 -> alt 文字；链接 -> 链接文字
+    plain = _IMAGE_RE.sub(lambda m: m.group(1), plain)
+    plain = _LINK_RE.sub(lambda m: m.group(1), plain)
+    # 强调/标题/行内代码等记号；表格竖线也当分隔符
+    plain = _INLINE_MARK_RE.sub(' ', plain)
+    plain = plain.replace('|', ' ')
+    return re.sub(r'\s+', ' ', plain).strip()
+
+
+def make_summary(text, length=80):
+    """从 Markdown 正文生成纯文本摘要（列表页用）。
+
+    不渲染 HTML，只去掉 Markdown 记号，保证摘要里不会出现
+    **、```、[]() 这些原文符号。
+    """
+    plain = plain_text(text)
     if len(plain) <= length:
         return plain
     return plain[:length] + '…'
@@ -121,10 +143,7 @@ def make_summary(text, length=80):
 
 def count_chars(text):
     """正文有效字符数（去掉空白），用来估算阅读时间。"""
-    if not text:
-        return 0
-    plain = strip_tags(render_markdown(text))
-    return len(re.sub(r'\s+', '', plain))
+    return len(re.sub(r'\s+', '', plain_text(text)))
 
 
 _HEADING_TAG_RE = re.compile(r'<h([23]) id="([^"]+)">(.*?)</h\1>', re.S)

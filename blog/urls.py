@@ -24,4 +24,6 @@ urlpatterns = [
     path('feed/', LatestPostsFeed(), name='feed'),
     # 站点地图：http://127.0.0.1:8000/sitemap.xml
     path('sitemap.xml', sitemap, name='sitemap'),
+    # 抓取规则：http://127.0.0.1:8000/robots.txt
+    path('robots.txt', views.robots, name='robots'),
 ]
