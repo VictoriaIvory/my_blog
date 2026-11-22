@@ -10,7 +10,7 @@
 | **1** | 项目骨架 + 文章模型 + 后台 + 列表/详情页 | ✅ 2026-11-07 |
 | **2** | 分类 + 搜索 + 分页 | ✅ 2026-11-15 |
 | **3** | Markdown 渲染 + 代码高亮 + 样式打磨 | ✅ 2026-11-16 |
-| 4 | 部署上线（3 篇真实文章已就位） | ⬜ 下一步 |
+| 4 | 部署上线（加固完成、部署手册已写，待注册 PythonAnywhere） | ⚪ 进行中 |
 
 ## 文章（3 篇）
 
@@ -38,7 +38,7 @@
 | Python | 3.12.10 |
 | Django | 5.2.18 LTS |
 | 数据库 | SQLite |
-| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments + Pillow） |
+| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments + Pillow + WhiteNoise） |
 
 > ⚠️ **不能用 Python 3.14**：Django 5.2 官方支持 3.10–3.13。
 > 建虚拟环境时确认 `python --version` 是 3.12。
@@ -99,28 +99,33 @@ myblog/
 │   ├── settings.py         # 全局配置：应用、数据库、时区、静态文件
 │   └── urls.py             # 总路由：/admin/ 和 /（交给 blog）
 ├── blog/                   # 博客应用
-│   ├── models.py           # Category 分类 + Tag 标签 + Post 文章（外键/多对多/封面/阅读量）
+│   ├── models.py           # Category 分类 + Tag 标签 + Post 文章（外键/多对多/封面/阅读量/封面压缩）
 │   ├── markdown_render.py  # Markdown → HTML + 白名单清洗（阶段 3）
 │   ├── admin.py            # 后台配置（三个模型、封面预览）
-│   ├── views.py            # 列表（筛选/搜索/分页）、详情（阅读量/相关）、归档、关于
+│   ├── views.py            # 列表（筛选/搜索/分页）、详情（阅读量/相关）、归档、关于、robots
 │   ├── feeds.py            # RSS 订阅源 /feed/
 │   ├── sitemap.py          # 站点地图 /sitemap.xml
-│   ├── urls.py             # 6 条路由
-│   ├── tests.py            # 51 个测试
+│   ├── urls.py             # 7 条路由
+│   ├── tests.py            # 59 个测试
 │   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0003）
-│   └── management/commands/seed_posts.py   # 造演示分类/标签/文章
+│   └── management/commands/
+│       ├── seed_posts.py   # 造演示分类/标签/文章
+│       └── backup.py       # 备份数据库 + media/ 到 backups/
 ├── templates/
-│   ├── base.html           # 全站外壳（顶栏 + 页脚）
-│   ├── 404.html            # 404 页面（DEBUG=False 时生效）
+│   ├── base.html           # 全站外壳（顶栏 + 页脚 + SEO/分享 meta）
+│   ├── 404.html            # 404 页面（带搜索框）
 │   └── blog/
 │       ├── post_list.html  # 列表页（头图 + 搜索 + 分类/标签 + 卡片 + 分页）
 │       ├── post_detail.html# 详情页（封面 + 目录 + 正文 + 上下篇 + 相关）
 │       ├── archive.html    # 归档页（按年月分组）
 │       └── about.html      # 关于页
-├── static/css/
-│   ├── style.css           # 全站样式（约 1050 行，CSS 变量 + 响应式，无框架）
-│   └── pygments.css        # 代码高亮配色（Pygments 生成，勿手改）
+├── static/
+│   ├── favicon.svg         # 站点图标
+│   └── css/
+│       ├── style.css       # 全站样式（约 1200 行，CSS 变量 + 响应式，无框架）
+│       └── pygments.css    # 代码高亮配色（Pygments 生成，勿手改）
 ├── media/                  # 用户上传的封面图（不进 Git，见 .gitignore）
+├── docs/04_部署手册.md     # PythonAnywhere 部署步骤 + 排查清单
 └── .github/workflows/tests.yml  # GitHub Actions：每次 push 自动跑测试
 ```
 
@@ -172,6 +177,24 @@ myblog/
 - **RSS / 站点地图**：`/feed/` 用 Django syndication，`/sitemap.xml` 手写 XML
 - **测试从 37 个加到 51 个**：标签、封面、阅读量、相关、归档、关于、RSS、sitemap
 
+**部署加固 + 性能优化（2026-11-23）**
+
+- **安全默认值**：`DEBUG` 默认改成 `False`（忘配 `.env` 也不会带调试页上线）
+- **HTTPS 开关**：`.env` 里 `DJANGO_HTTPS=True` 自动开启 HTTPS 跳转、安全 Cookie、
+  HSTS、反向代理头识别（PythonAnywhere 这类平台必需）
+- **静态文件**：加 WhiteNoise，生产环境直接从 `staticfiles/` 返回 CSS；
+  `collectstatic` 已实测（130 个文件）
+- **日志**：配置 `LOGGING`，线上出错能在平台 Error log 里看到 traceback
+- **备份**：新增 `python manage.py backup`，把数据库 + 封面图复制到 `backups/时间戳/`
+- **性能**：`body_html` / `summary` / `word_count` 改用 `cached_property`；
+  摘要和字数不再渲染 Markdown；列表和详情加 `prefetch_related('tags')`。
+  实测：首页 SQL 15 → 8 条、详情页 11 → 8 条，渲染时间减半左右
+- **封面图自动压缩**：上传超过 1600px 宽的图自动缩小（手机照片 5MB → 百 KB 级）
+- **SEO / 分享**：favicon、`robots.txt`、RSS 自动发现、Open Graph / Twitter 卡片、canonical
+- **可访问性**：灰色文字对比度 3.53:1 → 4.83:1（达到 WCAG AA）；键盘焦点框；404 页加搜索框
+- **部署手册**：`docs/04_部署手册.md`（注册 → 上传代码 → 环境变量 → 静态/媒体映射 → 验收 → 排查）
+- **测试从 51 个加到 59 个**：SEO 标签、robots、404 搜索、缓存、备份、封面压缩
+
 ## 用到的 Django 知识点
 
 | 知识点 | 在哪 |
@@ -213,7 +236,16 @@ myblog/
 | RSS syndication | `blog/feeds.py`（`django.contrib.syndication`） |
 | 站点地图 | `blog/sitemap.py`（手写 XML，不引 sites 框架） |
 | 归档分组 | 视图里按 `(年, 月)` 分组，模板只渲染 |
-| 测试 | `blog/tests.py`（51 个） |
+| `cached_property` | `body_html` / `summary` / `word_count` 同一实例只算一次 |
+| `prefetch_related` | 列表/详情的标签一次批量查出，避免 N+1 |
+| WhiteNoise | 生产环境直接返回静态文件（`MIDDLEWARE` 按 DEBUG 条件插入） |
+| 安全配置 | `SECURE_SSL_REDIRECT` / `SECURE_PROXY_SSL_HEADER` / 安全 Cookie / HSTS，环境变量控制 |
+| 生产检查 | `python manage.py check --deploy`（只剩 HSTS preload 一条有意保留的提示） |
+| 封面压缩 | `Post.save()` 里用 Pillow 缩到 1600px 宽 |
+| 备份命令 | `blog/management/commands/backup.py` |
+| robots.txt | `blog/views.py` 的 `robots()`，指向 sitemap |
+| SEO / 分享 | `base.html` 的 canonical / OG / Twitter / RSS 自动发现 |
+| 测试 | `blog/tests.py`（59 个） |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -307,17 +339,57 @@ RSS 用 Django 自带的 `contrib.syndication`；sitemap 只有十几行 XML，
 换台电脑/部署时应该单独备份或传到对象存储。所以 `.gitignore` 排除 `media/`，
 README 的部署一节会写清楚怎么处理。
 
+**部署加固：为什么把 DEBUG 默认值改成 False？**
+`os.environ.get('DJANGO_DEBUG', 'True')` 看着方便，但部署时忘建 `.env` 就会带着
+调试页上线——报错时源码、配置、SQL 全暴露。默认 False 是「安全失败」，
+本地开发在 `.env` 里显式写 `True`，多打一行字换一个安全默认值。
+
+**部署加固：为什么用 WhiteNoise 而不是全交给平台？**
+PythonAnywhere 可以用 Static files 映射，但换到别的平台（Render/Fly/服务器）
+就要重配。WhiteNoise 让应用自己带静态文件服务：装一个依赖、加一行中间件，
+换平台不用改代码。媒体文件（封面图）仍然交给平台映射，因为上传目录会变。
+
+**部署加固：为什么 HSTS preload 故意不开？**
+`check --deploy` 会提示把 `SECURE_HSTS_PRELOAD` 设为 True，但免费二级域名
+（`xxx.pythonanywhere.com`）不适合提交浏览器 preload 列表——一旦进了列表很难撤回。
+HSTS 本身已开（1 小时），够用；这属于「知道警告在说什么，所以有意保留」。
+
+**性能：为什么摘要不渲染 Markdown 了？**
+列表页每张卡片都要摘要。之前是渲染完整 HTML 再 `strip_tags`，一页 5 篇就是
+5 次 Markdown + bleach。改成只去 Markdown 记号的 `plain_text()`，结果一样
+（不会露出 `**`、代码围栏），但快得多。正文仍然走完整渲染 + 清洗，安全不变。
+
+**性能：为什么用 `cached_property`？**
+详情页要拿 `body_html` 生成目录、再渲染正文，同一篇会算两次；相关文章卡片
+还要算阅读时间。`cached_property` 让同一实例只算一次，页面请求里省掉重复渲染。
+
+**部署：为什么写部署手册而不是记在聊天里？**
+部署涉及「代码 + 数据库 + 上传文件 + 环境变量 + 平台映射」五样东西，
+聊天记录会丢、平台界面会变。写成 `docs/04_部署手册.md`，照着做能复现，
+换电脑/重装也能用。
+
 ## 下一步（阶段 4：部署）
 
-- 部署到 PythonAnywhere（免费、支持 Django + SQLite）或自己的服务器
-- 生产配置：`DEBUG=False`、`ALLOWED_HOSTS` 写死域名、WhiteNoise 处理静态文件、
-  按 `manage.py check --deploy` 补齐安全项
-- 数据库：`db.sqlite3` 不进 Git，部署后要单独上传/备份，先写一份《部署手册》
-- **上传文件**：`media/` 同样不进 Git，部署后要把 `media/` 拷到服务器，
-  并在部署平台配置 `MEDIA_ROOT` 的访问方式
-- 线上验收：手机能打开、后台能写文章、链接发给组长能点开
+**代码这边的部署加固已经做完**，可以直接上线，只差注册账号。步骤见
+[`docs/04_部署手册.md`](docs/04_部署手册.md)，核心是：
 
-> 文章已按阶段 4 的要求写到 3 篇；阶段 4 只剩部署这一件事。
+1. 注册 PythonAnywhere，建 Manual configuration 的 Web 应用（Python 3.12）
+2. Bash 里 `git clone` + 建 venv + `pip install -r requirements.txt`
+3. 写 `.env`：`DEBUG=False`、`ALLOWED_HOSTS=用户名.pythonanywhere.com`、`HTTPS=True`
+4. 上传 `db.sqlite3` 和 `media/`（或从空站 `migrate` + `createsuperuser`）
+5. `collectstatic`，Web 页配 WSGI、`/static/` → `staticfiles`、`/media/` → `media`
+6. Reload，按手册第 7 节验收（手机打开、后台能写、RSS/封面图正常）
+
+> PythonAnywhere 2026 年免费额度：100 CPU 秒/天、512 MiB 磁盘、1 个 Web 应用；
+> **1 个月没人访问会过期**（演示期间保持每周打开一次即可）。
+> 参考：[免费账户功能](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)、
+> [2026 调整公告](https://blog.pythonanywhere.com/221/)
+
+上线后还剩的收尾：
+
+- [ ] 第 4 篇文章《把博客部署上线踩的坑》（把部署过程写成内容）
+- [ ] 给组长发线上链接 + 截图（话术在 `12_我的博客/汇报材料_20261116/汇报消息.md`）
+- [ ] 每周 `python manage.py backup` 一次，下载备份到本地
 
 ## 换台电脑怎么复现
 
