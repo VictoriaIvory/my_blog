@@ -1,7 +1,7 @@
 # 我的博客
 
 > 技术组最终任务：用 **Django** 做一个自己的博客。
-> 分 4 个阶段做，不一次做完——每阶段代码量可控，也方便讲清楚。
+> 分阶段做，不一次做完——每阶段代码量可控，也方便讲清楚。
 
 ## 当前进度
 
@@ -12,6 +12,7 @@
 | **3** | Markdown 渲染 + 代码高亮 + 样式打磨 | ✅ 2026-11-16 |
 | 4 | 部署上线 | — **不做**（本地项目，无云端需求；部署手册留档备用） |
 | **5** | 按 GitHub 参考项目 DjangoBlog 复现功能（第一批） | ✅ 2026-11-23（评论/登录/页面/侧边栏/站点设置） |
+| **6** | 复现 DjangoBlog 第二批：草稿+定时发布、深色模式 | ✅ 2026-11-23 |
 
 ## 文章（3 篇）
 
@@ -19,7 +20,7 @@
 2. 《给博客加分类、搜索和分页，三个我以为半小时能搞定的东西》（2026-11-16）
 3. 《让室友用手机给我的投票 demo 投票：ALLOWED_HOSTS 那点事》（2026-11-16）
 
-## 已经能做什么（v1.2，2026-11-23）
+## 已经能做什么（v1.4，2026-11-23）
 
 | 功能 | 说明 |
 |---|---|
@@ -34,6 +35,8 @@
 | **独立页面** | 后台把文章勾成「页面」，走 `/page/<id>/`，不进列表/搜索/归档（如留言板） |
 | **侧边栏** | 最新文章 / 最多阅读 / 标签云 / 最新评论 / 页面入口 |
 | **站点设置** | 后台改站名、描述、页脚、备案号、统计代码、评论审核开关、侧边栏数量 |
+| **草稿 / 定时发布** | 后台存草稿，或把「发布时间」填到将来；没发布/没到点的文章在列表、搜索、RSS、sitemap、侧边栏、评论里都不出现，详情直接 404，到点自动出现 |
+| **深色模式** | 顶栏一键切换（日/月图标）或跟随系统；localStorage 记住选择，`?theme=dark\|light` 可固定；深色下代码高亮单独配色 |
 | 订阅 / 收录 | RSS 订阅 `/feed/`、站点地图 `/sitemap.xml` |
 | 关于页 | 介绍博客、技术栈、现状 |
 
@@ -114,8 +117,9 @@ myblog/
 │   ├── context_processors.py   # 站点设置 + 导航页面（全站模板可用）
 │   ├── templatetags/blog_extras.py  # 侧边栏 inclusion tag
 │   ├── urls.py             # 8 条路由
-│   ├── tests.py            # 84 个测试
-│   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0004）
+│   ├── tests.py            # 106 个测试（草稿/定时发布等）
+│   ├── tests_theme.py      # 15 个深色模式测试（第二批）
+│   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0005）
 │   └── management/commands/
 │       ├── seed_posts.py   # 造演示分类/标签/文章/页面
 │       └── backup.py       # 备份数据库 + media/ 到 backups/
@@ -126,7 +130,7 @@ myblog/
 │   └── admin.py            # 审核 / 批量通过
 ├── accounts/               # 账号应用（登录/注册/退出/个人中心）
 ├── templates/
-│   ├── base.html           # 全站外壳（顶栏 + 页脚 + SEO + 登录状态）
+│   ├── base.html           # 全站外壳（顶栏 + 页脚 + SEO + 登录状态 + 深色模式）
 │   ├── 404.html            # 404 页面（带搜索框）
 │   ├── blog/
 │   │   ├── post_list.html  # 列表页（头图 + 搜索 + 分类/标签 + 卡片 + 分页）
@@ -139,8 +143,10 @@ myblog/
 │   └── accounts/           # login / register / profile
 ├── static/
 │   ├── favicon.svg         # 站点图标
+│   ├── js/
+│   │   └── theme.js        # 深色模式切换（第二批，无依赖）
 │   └── css/
-│       ├── style.css       # 全站样式（约 1600 行，CSS 变量 + 响应式，无框架）
+│       ├── style.css       # 全站样式（约 1550 行，CSS 变量 + 响应式 + 深色模式，无框架）
 │       └── pygments.css    # 代码高亮配色（Pygments 生成，勿手改）
 ├── media/                  # 用户上传的封面图（不进 Git，见 .gitignore）
 ├── docs/04_部署手册.md     # PythonAnywhere 部署步骤 + 排查清单
@@ -209,8 +215,24 @@ myblog/
 - **测试从 59 个加到 84 个**：评论权限/审核/回复/关闭、注册登录退出、页面、侧边栏、站点设置
 
 > 没照搬的：MySQL / Redis / Elasticsearch / Tailwind+Vite / OAuth / Docker（参考项目是线上系统，
-> 这些和「本地项目」的定位冲突）。第二批候选：草稿+定时发布、Whoosh 全文搜索、深色模式、
-> 友链页、作者页、插件机制。
+> 这些和「本地项目」的定位冲突）。
+
+**复现参考项目 DjangoBlog（2026-11-23，第二批）**
+
+第一批补的是「缺的应用」，第二批补「写文章 / 读文章时的体验」：
+
+- **草稿 + 定时发布**：`Post.status`（draft/published）替代 `is_published`，新增 `pub_time`；
+  统一 `Post.objects.visible()` 判定（已发布且发布时间已到），所有前台入口共用——
+  草稿和没到点的文章在列表 / 搜索 / 归档 / RSS / sitemap / 侧边栏里都不出现，详情直接 404；
+  到点自动出现，**不需要定时任务**。顺便修了首页统计把独立页面算成文章的老 bug（4 → 3）。
+- **深色模式**：`[data-theme="dark"]` + `prefers-color-scheme` 两套触发；顶栏切换按钮
+  （日/月图标、aria 状态）；localStorage 记住选择，`?theme=dark|light` 可固定主题；
+  Pygments 代码高亮单独配深色 token；防闪烁脚本先于样式表执行（不会闪一下白）。
+- **测试从 84 个加到 121 个**（`blog/tests.py` 106 + `blog/tests_theme.py` 15）：
+  草稿/定时在列表、搜索、分类、标签、归档、相关、侧边栏、RSS、sitemap、详情、独立页面、
+  评论、计数、上下篇、admin 的可见性；深色模式的模板 / 无障碍属性 / 静态资源断言。
+
+> 第二批还剩的候选：Whoosh 全文搜索 + 高亮、友链页 + 作者页、简化插件机制。
 
 **部署加固 + 性能优化（2026-11-23）**
 
@@ -293,7 +315,12 @@ myblog/
 | 侧边栏 | 自定义 `inclusion_tag`（`{% sidebar %}`），内部查最新/最热/标签/评论 |
 | 模板上下文处理器 | `blog.context_processors.blog_context`：`site`、`nav_pages` 全站可用 |
 | 独立页面 | `Post.is_page` + 单独路由 `/page/<id>/` + 列表/搜索/归档全部排除 |
-| 测试 | `blog/tests.py`（84 个） |
+| 草稿 / 定时发布 | `Post.status` + `Post.pub_time`；自定义 Manager `PostQuerySet.visible()` 统一可见性 |
+| 数据迁移 | `RunPython` 把旧 `is_published` 映射成 `status`，`pub_time` 用创建时间兜底 |
+| 深色模式（CSS） | 第二套 CSS 变量 + `[data-theme="dark"]` + `@media (prefers-color-scheme: dark)` |
+| 主题持久化 | `localStorage` 键 `dark-mode-enabled` + `<head>` 里防闪烁内联脚本 |
+| 静态 JS | `static/js/theme.js`（普通 static 文件，`defer` 加载，无打包构建） |
+| 测试 | `blog/tests.py`（106 个）+ `blog/tests_theme.py`（15 个，深色模式） |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -438,6 +465,21 @@ DjangoBlog 是线上系统，用了 MySQL、Redis、Elasticsearch、Tailwind/Vit
 `get_or_create(pk=1)` 保证只有一行，后台也不允许新增第二行；
 模板通过上下文处理器拿到 `site`，改站名不用改代码、不用重启。
 
+**复现参考项目：为什么删掉 `is_published`、改成 `status` + `pub_time`？**
+「是否发布」和「什么时候发布」是两个独立问题：草稿是永远不发布，定时文章是已决定发布、
+但时间还没到。一个布尔字段表达不了后者，只能靠临时改 `created_at` 或者后台手点，容易乱。
+拆成 choices + 时间字段后，可见性判定只有一句 `status=published and pub_time<=now`，
+列表 / 搜索 / RSS / sitemap / 侧边栏 / 评论 POST 都复用它——漏掉任何一处，测试都能抓到。
+
+**复现参考项目：为什么定时发布不用 celery / cron？**
+本地博客没有常驻进程，引入定时任务只会多一个要维护的组件。可见性在每次查询时按
+`pub_time <= now` 判断，到点下一次刷新页面就出现——零依赖、不会漏跑。
+
+**复现参考项目：深色模式为什么写两段重复的 palette？**
+CSS 没法把 `[data-theme="dark"]`（手动切换）和 `@media (prefers-color-scheme: dark)`
+（跟随系统）合成一个选择器，所以变量块只能写两遍。为了不让两边漂移，两段相邻放、
+注释写明同步修改，并在 `blog/tests_theme.py` 里断言两边关键字都存在。
+
 ## 下一步（本地交付，不部署）
 
 **这个项目按本地项目交付，不需要上传到云端。** 平时就是：
@@ -456,16 +498,13 @@ python manage.py runserver
 - [ ] 组长要看时，当面打开电脑演示；不在场就发截图/录屏（Win+G 录 30 秒）
 - [ ] 每周跑一次 `python manage.py backup`（数据库 + 封面图备份到 `backups/`）
 
-### 复现 DjangoBlog：第二批候选（还没做）
+### 复现 DjangoBlog：第二批进展
 
-按价值排序，做之前先确认要不要：
-
-1. **文章草稿 + 定时发布**：`status`（草稿/发布）+ `pub_time`，到点才出现在前台
-2. **全文搜索 + 高亮**：本地用 Whoosh（不装 Elasticsearch），搜正文、关键词标黄
-3. **深色模式**：`prefers-color-scheme` + 手动切换
-4. **友链页 + 作者页**：`Links` 模型、按作者筛文章
-5. **简化插件机制**：文章版权声明、外链图标、SEO 插件（参考项目有 8 个插件）
-6. 可选但价值低：缓存（本地 LocMem 意义不大）、i18n、健康检查
+- ✅ **草稿 + 定时发布**（2026-11-23）：`status` + `pub_time`，到点才出现在前台
+- ✅ **深色模式**（2026-11-23）：`prefers-color-scheme` + 顶栏手动切换
+- ⬜ **全文搜索 + 高亮**：本地用 Whoosh（不装 Elasticsearch），搜正文、关键词标黄
+- ⬜ **友链页 + 作者页**：`Links` 模型、按作者筛文章
+- ⬜ **简化插件机制**：文章版权声明、外链图标、SEO 插件（参考项目有 8 个插件）
 
 **明确不做**：Docker/K8s、MySQL、Redis、Elasticsearch、Tailwind+Vite、OAuth 登录
 （这些是参考项目的生产环境方案，和「本地项目」的定位冲突）。
@@ -477,7 +516,8 @@ python manage.py runserver
 以后可选的加分项（都不是必须）：
 
 - 再写几篇文章（现在 3 篇，内容越多越像真博客）
-- 深色模式（纯 CSS `prefers-color-scheme`）
+- 全文搜索（本地 Whoosh，带关键词高亮）
+- 友链页 / 作者页
 - 评论 / 点赞（个人本地项目意义不大）
 
 ## 换台电脑怎么复现
