@@ -12,6 +12,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # 根路径全部交给 blog 应用
     path('', include('blog.urls')),
+    # 评论发表
+    path('', include('comments.urls')),
+    # 登录 / 注册 / 退出 / 个人中心
+    path('', include('accounts.urls')),
 ]
 
 # 开发环境由 Django 帮忙把上传的图片（封面图）送出去；

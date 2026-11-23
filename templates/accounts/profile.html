@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}个人中心 · {{ site.site_name }}{% endblock %}
+
+{% block content %}
+<div class="page-grid">
+  <div class="page-main">
+    <section class="page-header">
+      <p class="page-eyebrow">PROFILE</p>
+      <h1 class="page-title">{{ user.username }} 的个人中心</h1>
+      <p class="page-desc">
+        注册于 {{ user.date_joined|date:"Y 年 n 月 j 日" }}
+        {% if user.email %} · {{ user.email }}{% endif %}
+      </p>
+    </section>
+
+    <section class="profile-section">
+      <h2 class="profile-title">我的评论（{{ comment_count }}）</h2>
+      {% if comments %}
+        <ul class="profile-comments">
+          {% for c in comments %}
+            <li class="profile-comment">
+              <p class="profile-comment-meta">
+                <a href="{{ c.post.get_absolute_url }}#comment-{{ c.pk }}">《{{ c.post.title }}》</a>
+                · {{ c.created_at|date:"Y-m-d H:i" }}
+                {% if not c.is_approved %}<span class="pending-badge">审核中</span>{% endif %}
+              </p>
+              <p class="profile-comment-body">{{ c.body|truncatechars:120 }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="comments-empty">还没有发过评论。去 <a href="{% url 'blog:list' %}">文章列表</a> 看看？</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

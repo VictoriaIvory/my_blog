@@ -91,6 +91,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # 自己写的应用
     'blog',
+    'comments',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -120,6 +122,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # 站点设置 + 导航独立页面（仿 DjangoBlog 的 BlogSettings）
+                'blog.context_processors.blog_context',
             ],
         },
     },

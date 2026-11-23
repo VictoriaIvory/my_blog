@@ -7,12 +7,15 @@
 import shutil
 import tempfile
 
+from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Category, Post, Tag
+from comments.models import Comment
+
+from .models import BlogSettings, Category, Post, Tag
 
 
 class PostListTests(TestCase):
@@ -60,8 +63,9 @@ class CategoryFilterTests(TestCase):
         response = self.client.get(reverse('blog:list'), {'category': 'Django'})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Django 的 MVT')
-        self.assertNotContains(response, '饼图画不出来')
+        titles = [p.title for p in response.context['posts']]
+        self.assertIn('Django 的 MVT', titles)
+        self.assertNotIn('饼图画不出来', titles)
         self.assertEqual(response.context['current_category'].pk, self.django.pk)
 
     def test_filter_ignores_drafts(self):
@@ -71,7 +75,8 @@ class CategoryFilterTests(TestCase):
 
         response = self.client.get(reverse('blog:list'), {'category': 'Django'})
 
-        self.assertNotContains(response, 'Django 草稿')
+        titles = [p.title for p in response.context['posts']]
+        self.assertNotIn('Django 草稿', titles)
 
     def test_unknown_category_returns_empty(self):
         """不存在的分类给空列表，而不是把所有文章倒出来。"""
@@ -79,7 +84,7 @@ class CategoryFilterTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['total_count'], 0)
-        self.assertNotContains(response, 'Django 的 MVT')
+        self.assertEqual(list(response.context['posts']), [])
 
     def test_category_and_keyword_together(self):
         """分类和搜索可以叠加：两个条件同时满足才显示。"""
@@ -103,15 +108,17 @@ class SearchTests(TestCase):
         response = self.client.get(reverse('blog:list'), {'q': '饼图'})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '饼图踩坑')
-        self.assertNotContains(response, '分页')
+        titles = [p.title for p in response.context['posts']]
+        self.assertIn('饼图踩坑', titles)
+        self.assertNotIn('分页', titles)
 
     def test_search_by_body(self):
         """正文命中也要搜得到。"""
         response = self.client.get(reverse('blog:list'), {'q': 'Paginator'})
 
-        self.assertContains(response, '分页')
-        self.assertNotContains(response, '饼图踩坑')
+        titles = [p.title for p in response.context['posts']]
+        self.assertIn('分页', titles)
+        self.assertNotIn('饼图踩坑', titles)
 
     def test_search_is_case_insensitive(self):
         """icontains：大小写不敏感。"""
@@ -393,8 +400,9 @@ class TagFilterTests(TestCase):
         response = self.client.get(reverse('blog:list'), {'tag': '部署'})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '部署踩坑')
-        self.assertNotContains(response, '没标签的文章')
+        titles = [p.title for p in response.context['posts']]
+        self.assertIn('部署踩坑', titles)
+        self.assertNotIn('没标签的文章', titles)
         self.assertEqual(response.context['current_tag'].pk, self.deploy.pk)
 
     def test_unknown_tag_returns_empty(self):
@@ -508,8 +516,9 @@ class RelatedPostsTests(TestCase):
         response = self.client.get(reverse('blog:detail', args=(main.pk,)))
 
         self.assertContains(response, '相关文章')
-        self.assertContains(response, '同标签文章')
-        self.assertNotContains(response, '无关文章')
+        related_titles = [p.title for p in response.context['related_posts']]
+        self.assertIn('同标签文章', related_titles)
+        self.assertNotIn('无关文章', related_titles)
 
     def test_related_falls_back_to_category(self):
         category = Category.objects.create(name='Django')
@@ -683,3 +692,266 @@ class BackupCommandTests(TestCase):
             self.assertEqual(len(items), 1)
             self.assertTrue((items[0] / 'media' / 'covers' / 'a.jpg').exists())
             self.assertIn('备份完成', out.getvalue())
+
+
+class LoginRequiredCommentTests(TestCase):
+    """2026-11-23：评论必须登录；审核开关、回复、关闭评论。"""
+
+    def setUp(self):
+        self.post = Post.objects.create(title='评论测试文章', body='x')
+        self.user = User.objects.create_user('reader', password='pass12345')
+
+    def _post_comment(self, body='说两句', parent=None):
+        data = {'body': body}
+        if parent:
+            data['parent'] = parent.pk
+        return self.client.post(
+            reverse('comments:post_comment', args=[self.post.pk]), data)
+
+    def test_anonymous_cannot_comment(self):
+        response = self._post_comment()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response.url)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_logged_in_comment_is_pending_when_review_on(self):
+        self.client.force_login(self.user)
+
+        response = self._post_comment('第一条评论')
+
+        self.assertEqual(response.status_code, 302)
+        comment = Comment.objects.get()
+        self.assertEqual(comment.author, self.user)
+        self.assertFalse(comment.is_approved)   # 默认站点设置是「需要审核」
+        self.assertEqual(comment.post, self.post)
+
+    def test_admin_comment_is_auto_approved(self):
+        staff = User.objects.create_user('admin', password='pass12345', is_staff=True)
+        self.client.force_login(staff)
+
+        self._post_comment('管理员评论')
+
+        self.assertTrue(Comment.objects.get().is_approved)
+
+    def test_review_off_auto_approves(self):
+        site = BlogSettings.load()
+        site.comment_need_review = False
+        site.save()
+        self.client.force_login(self.user)
+
+        self._post_comment('无需审核的评论')
+
+        self.assertTrue(Comment.objects.get().is_approved)
+
+    def test_nested_reply(self):
+        parent = Comment.objects.create(
+            post=self.post, author=self.user, body='父评论', is_approved=True)
+        self.client.force_login(self.user)
+
+        self._post_comment('子回复', parent=parent)
+
+        reply = Comment.objects.exclude(pk=parent.pk).get()
+        self.assertEqual(reply.parent, parent)
+
+    def test_closed_comments_are_rejected(self):
+        self.post.allow_comments = False
+        self.post.save()
+        self.client.force_login(self.user)
+
+        self._post_comment('关了还能评论吗')
+
+        self.assertEqual(Comment.objects.count(), 0)
+
+    def test_approved_comment_visible_on_detail(self):
+        Comment.objects.create(
+            post=self.post, author=self.user, body='已经审核过的评论', is_approved=True)
+        Comment.objects.create(
+            post=self.post, author=self.user, body='还在审核的评论', is_approved=False)
+
+        response = self.client.get(self.post.get_absolute_url())
+
+        self.assertContains(response, '已经审核过的评论')
+        self.assertNotContains(response, '还在审核的评论')
+
+    def test_detail_shows_login_hint_for_anonymous(self):
+        response = self.client.get(self.post.get_absolute_url())
+
+        self.assertContains(response, '登录')
+        self.assertNotContains(response, '发表评论')
+
+    def test_reply_target_prefills_hint(self):
+        parent = Comment.objects.create(
+            post=self.post, author=self.user, body='父评论', is_approved=True)
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.post.get_absolute_url() + f'?reply={parent.pk}')
+
+        self.assertContains(response, '正在回复')
+        self.assertContains(response, f'name="parent" value="{parent.pk}"')
+
+
+class AccountTests(TestCase):
+    """2026-11-23：注册 / 登录 / 退出 / 个人中心。"""
+
+    def test_register_creates_user_and_logs_in(self):
+        response = self.client.post(reverse('accounts:register'), {
+            'username': 'newbie',
+            'email': '',
+            'password1': 'test-pass-1234',
+            'password2': 'test-pass-1234',
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(User.objects.filter(username='newbie').exists())
+        self.assertEqual(response.context['user'].username, 'newbie')
+        self.assertContains(response, '注册成功')
+
+    def test_login_page_renders(self):
+        response = self.client.get(reverse('accounts:login'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_login_works(self):
+        User.objects.create_user('loginuser', password='pass12345')
+
+        response = self.client.post(reverse('accounts:login'), {
+            'username': 'loginuser',
+            'password': 'pass12345',
+        }, follow=True)
+
+        self.assertEqual(response.context['user'].username, 'loginuser')
+
+    def test_profile_requires_login(self):
+        response = self.client.get(reverse('accounts:profile'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/accounts/login/', response.url)
+
+    def test_profile_shows_my_comments(self):
+        user = User.objects.create_user('commenter', password='pass12345')
+        post = Post.objects.create(title='文章', body='x')
+        Comment.objects.create(post=post, author=user, body='我的评论内容', is_approved=True)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('accounts:profile'))
+
+        self.assertContains(response, '我的评论')
+        self.assertContains(response, '我的评论内容')
+
+    def test_logout_requires_post(self):
+        user = User.objects.create_user('bye', password='pass12345')
+        self.client.force_login(user)
+
+        self.assertEqual(self.client.get(reverse('accounts:logout')).status_code, 405)
+
+        response = self.client.post(reverse('accounts:logout'))
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+
+class PageTests(TestCase):
+    """2026-11-23：独立页面（is_page）。"""
+
+    def setUp(self):
+        self.page = Post.objects.create(
+            title='留言板', body='这里可以留言。', is_page=True, is_published=True)
+        self.post = Post.objects.create(title='普通文章', body='x')
+
+    def test_page_detail_renders(self):
+        response = self.client.get(self.page.get_absolute_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '留言板')
+        self.assertContains(response, '这里可以留言。')
+
+    def test_page_not_in_article_list(self):
+        response = self.client.get(reverse('blog:list'))
+        titles = [p.title for p in response.context['posts']]
+        self.assertNotIn('留言板', titles)
+
+    def test_page_not_in_archive_or_feed(self):
+        archive = self.client.get(reverse('blog:archive'))
+        archive_titles = [
+            post.title
+            for group in archive.context['groups']
+            for post in group['posts']
+        ]
+        self.assertNotIn('留言板', archive_titles)
+
+        feed = self.client.get(reverse('blog:feed'))
+        self.assertNotContains(feed, '留言板')
+
+    def test_page_appears_in_footer_nav(self):
+        response = self.client.get(reverse('blog:list'))
+        self.assertContains(response, '留言板')
+
+    def test_page_can_have_comments(self):
+        user = User.objects.create_user('pageuser', password='pass12345')
+        self.client.force_login(user)
+
+        self.client.post(
+            reverse('comments:post_comment', args=[self.page.pk]), {'body': '页面评论'})
+
+        self.assertTrue(Comment.objects.filter(post=self.page, body='页面评论').exists())
+
+    def test_draft_page_404(self):
+        draft = Post.objects.create(
+            title='草稿页面', body='x', is_page=True, is_published=False)
+
+        response = self.client.get(reverse('blog:page_detail', args=[draft.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+
+class SidebarTests(TestCase):
+    """2026-11-23：侧边栏模块。"""
+
+    def test_sidebar_has_sections(self):
+        tag = Tag.objects.create(name='Django')
+        post = Post.objects.create(title='侧边栏文章', body='x')
+        post.tags.add(tag)
+        user = User.objects.create_user('sideuser', password='pass12345')
+        Comment.objects.create(post=post, author=user, body='侧边栏评论', is_approved=True)
+
+        response = self.client.get(reverse('blog:list'))
+
+        self.assertContains(response, '最新文章')
+        self.assertContains(response, '最多阅读')
+        self.assertContains(response, '标签云')
+        self.assertContains(response, '最新评论')
+        self.assertContains(response, '侧边栏评论')
+        self.assertContains(response, '侧边栏文章')
+
+
+class SiteSettingsTests(TestCase):
+    """2026-11-23：站点设置全站生效。"""
+
+    def test_site_name_appears_in_page(self):
+        site = BlogSettings.load()
+        site.site_name = '陈城泓的博客'
+        site.footer_text = '测试页脚'
+        site.save()
+
+        response = self.client.get(reverse('blog:list'))
+
+        self.assertContains(response, '陈城泓的博客')
+        self.assertContains(response, '测试页脚')
+
+    def test_beian_and_analytics_render(self):
+        site = BlogSettings.load()
+        site.beian_code = '粤ICP备00000000号'
+        site.analytics_code = '<script>window.__test_analytics__ = 1;</script>'
+        site.save()
+
+        response = self.client.get(reverse('blog:list'))
+
+        self.assertContains(response, '粤ICP备00000000号')
+        self.assertContains(response, '__test_analytics__')
+
+    def test_comment_need_review_switch(self):
+        site = BlogSettings.load()
+        self.assertTrue(site.comment_need_review)   # 默认值
+
+        site.comment_need_review = False
+        site.save()
+
+        self.assertFalse(BlogSettings.load().comment_need_review)

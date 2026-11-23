@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}注册 · {{ site.site_name }}{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-card">
+    <h1 class="form-title">注册</h1>
+    <p class="form-desc">注册一个账号，就可以在文章下面留言了。</p>
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" class="stack-form">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="form-field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="form-help">{{ field.help_text|safe }}</small>{% endif %}
+          {% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}
+        </label>
+      {% endfor %}
+      <button class="btn-primary btn-block" type="submit">注册并登录</button>
+    </form>
+
+    <p class="form-switch">已经有账号？<a href="{% url 'accounts:login' %}">去登录</a></p>
+  </div>
+</div>
+{% endblock %}

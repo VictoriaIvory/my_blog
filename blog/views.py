@@ -9,6 +9,7 @@
 可以叠加：/?category=Django&tag=部署&q=模板&page=2
 
 2026-11-16 新增：标签筛选、阅读量计数、相关文章、归档页、关于页。
+2026-11-23 新增（复现 DjangoBlog）：评论、独立页面、侧边栏、站点设置。
 """
 
 from django.core.paginator import Paginator
@@ -17,8 +18,10 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
+from comments.utils import build_comment_tree, reply_target
+
 from .markdown_render import extract_toc
-from .models import Category, Post, Tag
+from .models import BlogSettings, Category, Post, Tag
 
 # 每页显示几篇。放成常量，以后想改只改这一处。
 PAGE_SIZE = 5
@@ -50,7 +53,10 @@ def _page_numbers(page_obj):
 def _tag_queryset():
     """有已发布文章的标签，带文章数（标签云/筛选条用）。"""
     return Tag.objects.annotate(
-        post_count=Count('posts', filter=Q(posts__is_published=True)),
+        post_count=Count(
+            'posts',
+            filter=Q(posts__is_published=True, posts__is_page=False),
+        ),
     ).filter(post_count__gt=0)
 
 
@@ -58,7 +64,7 @@ def post_list(request):
     """首页：列出已发布的文章，支持分类 / 标签 / 搜索 / 分页。"""
     # 1. 先把「只显示已发布」这个底线定下来，后面的筛选都在它之上叠加
     posts = (
-        Post.objects.filter(is_published=True)
+        Post.objects.filter(is_published=True, is_page=False)
         .select_related('category')
         .prefetch_related('tags')   # 卡片要显示标签，一次批量取，避免 N+1
     )
@@ -115,7 +121,7 @@ def post_list(request):
         'category_count': Category.objects.count(),
         'tag_count': len(tags),
         'total_views': stats['views'] or 0,
-        'latest_post': Post.objects.filter(is_published=True).first(),
+        'latest_post': Post.objects.filter(is_published=True, is_page=False).first(),
     }
     return render(request, 'blog/post_list.html', context)
 
@@ -123,7 +129,7 @@ def post_list(request):
 def _related_posts(post, limit=3):
     """相关文章：先按共同标签，再按同分类，最多 limit 篇。"""
     base = (
-        Post.objects.filter(is_published=True)
+        Post.objects.filter(is_published=True, is_page=False)
         .exclude(pk=post.pk)
         .select_related('category')
     )
@@ -143,6 +149,20 @@ def _related_posts(post, limit=3):
     return related
 
 
+def _comment_context(request, post):
+    """详情页/页面共用的评论上下文。"""
+    site = BlogSettings.load()
+    comments_open = site.allow_site_comments and post.allow_comments
+    reply_to = reply_target(post, request.GET.get('reply', ''))
+    return {
+        'comments': build_comment_tree(post),
+        'comment_count': post.comments.filter(is_approved=True).count(),
+        'comments_open': comments_open,
+        'reply_to': reply_to,
+        'comment_form_disabled': not comments_open,
+    }
+
+
 def post_detail(request, pk):
     """文章详情页。
 
@@ -153,13 +173,14 @@ def post_detail(request, pk):
         Post.objects.select_related('category').prefetch_related('tags'),
         pk=pk,
         is_published=True,
+        is_page=False,
     )
 
     # 阅读量 +1：用 F 表达式在数据库里自增，避免「读出来加一再写回」的并发覆盖
     Post.objects.filter(pk=post.pk).update(views=F('views') + 1)
     post.refresh_from_db(fields=['views'])
 
-    published = Post.objects.filter(is_published=True)
+    published = Post.objects.filter(is_published=True, is_page=False)
 
     # 上一篇 = 更早的一篇（pk 更小）；下一篇 = 更新的一篇
     prev_post = published.filter(pk__lt=post.pk).order_by('-pk').first()
@@ -172,12 +193,35 @@ def post_detail(request, pk):
         'next_post': next_post,
         'related_posts': _related_posts(post),
     }
+    context.update(_comment_context(request, post))
     return render(request, 'blog/post_detail.html', context)
+
+
+def page_detail(request, pk):
+    """独立页面（关于、留言板等）：不进列表/搜索，但可以有评论。"""
+    page = get_object_or_404(
+        Post.objects.select_related('category'),
+        pk=pk,
+        is_published=True,
+        is_page=True,
+    )
+    Post.objects.filter(pk=page.pk).update(views=F('views') + 1)
+    page.refresh_from_db(fields=['views'])
+
+    context = {
+        'post': page,
+        'toc': extract_toc(page.body_html),
+    }
+    context.update(_comment_context(request, page))
+    return render(request, 'blog/page_detail.html', context)
 
 
 def archive(request):
     """归档页：按年月把已发布文章分组。"""
-    posts = Post.objects.filter(is_published=True).only('title', 'created_at', 'pk')
+    posts = (
+        Post.objects.filter(is_published=True, is_page=False)
+        .only('title', 'created_at', 'pk')
+    )
 
     groups = []
     for post in posts:
@@ -200,7 +244,7 @@ def archive(request):
 def about(request):
     """关于页：这个博客是什么、用了什么技术、怎么搭的。"""
     return render(request, 'blog/about.html', {
-        'published_count': Post.objects.filter(is_published=True).count(),
+        'published_count': Post.objects.filter(is_published=True, is_page=False).count(),
         'category_count': Category.objects.count(),
         'tag_count': len(list(_tag_queryset())),
     })

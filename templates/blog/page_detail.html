@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load blog_extras %}
+
+{% block title %}{{ post.title }} · {{ site.site_name }}{% endblock %}
+{% block description %}{{ post.summary }}{% endblock %}
+
+{% block content %}
+<div class="page-grid">
+  <div class="page-main">
+    <article class="post">
+      <header class="post-header">
+        <div class="post-kicker">
+          <span class="tag">页面</span>
+          <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
+          <span class="dot" aria-hidden="true">·</span>
+          <span>{{ post.views }} 次浏览</span>
+          <a class="post-comment-link" href="#comments">{{ comment_count }} 条评论</a>
+        </div>
+        <h1 class="post-title">{{ post.title }}</h1>
+      </header>
+
+      {% if toc|length > 1 %}
+        <nav class="toc" aria-label="本文目录">
+          <p class="toc-title">本文目录</p>
+          <ol class="toc-list">
+            {% for item in toc %}
+              <li class="toc-item toc-level-{{ item.level }}">
+                <a href="#{{ item.anchor }}">{{ item.text }}</a>
+              </li>
+            {% endfor %}
+          </ol>
+        </nav>
+      {% endif %}
+
+      <div class="post-body">{{ post.body_html|safe }}</div>
+    </article>
+
+    {% include 'comments/_section.html' %}
+
+    <p class="back"><a href="{% url 'blog:list' %}">← 返回首页</a></p>
+  </div>
+
+  {% sidebar %}
+</div>
+{% endblock %}

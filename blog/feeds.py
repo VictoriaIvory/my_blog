@@ -27,7 +27,7 @@ class LatestPostsFeed(Feed):
         return self._request.build_absolute_uri('/')
 
     def items(self):
-        return Post.objects.filter(is_published=True)[:20]
+        return Post.objects.filter(is_published=True, is_page=False)[:20]
 
     def item_title(self, item):
         return item.title

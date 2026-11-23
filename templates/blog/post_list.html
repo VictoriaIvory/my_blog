@@ -1,154 +1,162 @@
 {% extends 'base.html' %}
+{% load blog_extras %}
+{% load static %}
 
-{% block title %}首页 · 我的博客{% endblock %}
-{% block description %}记录做过的事，和踩过的坑。{% endblock %}
+{% block title %}首页 · {{ site.site_name }}{% endblock %}
+{% block description %}{{ site.site_description }}{% endblock %}
 
 {% block content %}
-{% if show_hero %}
-<section class="hero">
-  <p class="hero-eyebrow">个人博客 · 技术组最终任务</p>
-  <h1 class="hero-title">记录做过的事，<br>和踩过的坑。</h1>
-  <p class="hero-desc">
-    把项目里真实遇到的问题写下来：当时怎么想的、错在哪、最后怎么解决。
-    比起教程，更像留给几周后自己的备忘。
-  </p>
-  <div class="hero-stats">
-    <div class="stat">
-      <strong>{{ published_count }}</strong>
-      <span>篇文章</span>
-    </div>
-    <div class="stat">
-      <strong>{{ category_count }}</strong>
-      <span>个分类</span>
-    </div>
-    <div class="stat">
-      <strong>{{ tag_count }}</strong>
-      <span>个标签</span>
-    </div>
-    <div class="stat">
-      <strong>{{ total_views }}</strong>
-      <span>次阅读</span>
-    </div>
-  </div>
-</section>
-{% endif %}
-
-<section class="toolbar">
-  <form class="search" method="get" action="{% url 'blog:list' %}">
-    <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-    </svg>
-    <input type="search" name="q" value="{{ q }}" placeholder="搜索标题或正文…" aria-label="搜索文章">
-    {% if current_category %}<input type="hidden" name="category" value="{{ current_category.name }}">{% endif %}
-    {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag.name }}">{% endif %}
-    <button type="submit">搜索</button>
-  </form>
-
-  <nav class="category-nav" aria-label="分类">
-    <a href="{% url 'blog:list' %}" class="{% if not current_category and not current_tag %}active{% endif %}">全部</a>
-    {% for cat in categories %}
-      <a href="{% url 'blog:list' %}?category={{ cat.name|urlencode }}"
-         class="{% if current_category and current_category.pk == cat.pk %}active{% endif %}">{{ cat.name }}</a>
-    {% endfor %}
-  </nav>
-
-  {% if tags %}
-  <nav class="tag-nav" aria-label="标签">
-    <span class="tag-nav-label">标签</span>
-    {% for t in tags %}
-      <a href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}"
-         class="{% if current_tag and current_tag.pk == t.pk %}active{% endif %}">{{ t.name }}<span class="tag-count">{{ t.post_count }}</span></a>
-    {% endfor %}
-  </nav>
-  {% endif %}
-</section>
-
-<div class="section-head">
-  <h2>{% if q or current_category or current_tag %}筛选结果{% else %}最新文章{% endif %}</h2>
-  <span class="section-meta">
-    共 {{ total_count }} 篇
-    {% if q %}· 关键词「{{ q }}」{% endif %}
-    {% if current_category %}· 分类「{{ current_category.name }}」{% endif %}
-    {% if current_tag %}· 标签「{{ current_tag.name }}」{% endif %}
-    {% if q or current_category or current_tag %}<a href="{% url 'blog:list' %}" class="clear-filter">清除</a>{% endif %}
-  </span>
-</div>
-
-{% if posts %}
-  <div class="post-list">
-    {% for post in posts %}
-      <article class="post-card{% if post.cover %} has-cover{% endif %}">
-        {% if post.cover %}
-          <a class="post-card-cover" href="{% url 'blog:detail' post.pk %}" tabindex="-1" aria-hidden="true">
-            <img src="{{ post.cover.url }}" alt="" loading="lazy">
-          </a>
-        {% endif %}
-        <div class="post-card-body">
-          <div class="post-card-top">
-            {% if post.category %}
-              <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
-            {% endif %}
-            <time class="post-date" datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y-m-d" }}</time>
-            <span class="dot" aria-hidden="true">·</span>
-            <span class="read-time">约 {{ post.reading_time }} 分钟</span>
-            <span class="dot" aria-hidden="true">·</span>
-            <span class="view-count">{{ post.views }} 次浏览</span>
-          </div>
-          <h3 class="post-card-title">
-            <a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a>
-          </h3>
-          <p class="post-card-summary">{{ post.summary }}</p>
-          {% if post.tags.all %}
-            <p class="post-card-tags">
-              {% for t in post.tags.all %}<a class="tag tag-light" href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}</a>{% endfor %}
-            </p>
-          {% endif %}
-          <a class="post-card-more" href="{% url 'blog:detail' post.pk %}">阅读全文 <span aria-hidden="true">→</span></a>
+<div class="page-grid">
+  <div class="page-main">
+    {% if show_hero %}
+    <section class="hero">
+      <p class="hero-eyebrow">个人博客 · 技术组最终任务</p>
+      <h1 class="hero-title">记录做过的事，<br>和踩过的坑。</h1>
+      <p class="hero-desc">
+        把项目里真实遇到的问题写下来：当时怎么想的、错在哪、最后怎么解决。
+        比起教程，更像留给几周后自己的备忘。
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <strong>{{ published_count }}</strong>
+          <span>篇文章</span>
         </div>
-      </article>
-    {% endfor %}
-  </div>
+        <div class="stat">
+          <strong>{{ category_count }}</strong>
+          <span>个分类</span>
+        </div>
+        <div class="stat">
+          <strong>{{ tag_count }}</strong>
+          <span>个标签</span>
+        </div>
+        <div class="stat">
+          <strong>{{ total_views }}</strong>
+          <span>次阅读</span>
+        </div>
+      </div>
+    </section>
+    {% endif %}
 
-  {% if page_obj.paginator.num_pages > 1 %}
-    <nav class="pager" aria-label="分页">
-      {% if page_obj.has_previous %}
-        <a class="pager-step" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">← 上一页</a>
-      {% else %}
-        <span class="pager-step disabled">← 上一页</span>
-      {% endif %}
+    <section class="toolbar">
+      <form class="search" method="get" action="{% url 'blog:list' %}">
+        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input type="search" name="q" value="{{ q }}" placeholder="搜索标题或正文…" aria-label="搜索文章">
+        {% if current_category %}<input type="hidden" name="category" value="{{ current_category.name }}">{% endif %}
+        {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag.name }}">{% endif %}
+        <button type="submit">搜索</button>
+      </form>
 
-      <span class="pager-pages">
-        {% for num in page_numbers %}
-          {% if num %}
-            {% if num == page_obj.number %}
-              <span class="current" aria-current="page">{{ num }}</span>
-            {% else %}
-              <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}">{{ num }}</a>
-            {% endif %}
-          {% else %}
-            <span class="gap">…</span>
-          {% endif %}
+      <nav class="category-nav" aria-label="分类">
+        <a href="{% url 'blog:list' %}" class="{% if not current_category and not current_tag %}active{% endif %}">全部</a>
+        {% for cat in categories %}
+          <a href="{% url 'blog:list' %}?category={{ cat.name|urlencode }}"
+             class="{% if current_category and current_category.pk == cat.pk %}active{% endif %}">{{ cat.name }}</a>
         {% endfor %}
-      </span>
+      </nav>
 
-      {% if page_obj.has_next %}
-        <a class="pager-step" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">下一页 →</a>
-      {% else %}
-        <span class="pager-step disabled">下一页 →</span>
+      {% if tags %}
+      <nav class="tag-nav" aria-label="标签">
+        <span class="tag-nav-label">标签</span>
+        {% for t in tags %}
+          <a href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}"
+             class="{% if current_tag and current_tag.pk == t.pk %}active{% endif %}">{{ t.name }}<span class="tag-count">{{ t.post_count }}</span></a>
+        {% endfor %}
+      </nav>
       {% endif %}
-    </nav>
-  {% endif %}
-{% else %}
-  <div class="empty">
-    <p class="empty-title">{% if q or current_category or current_tag %}没有找到符合条件的文章{% else %}还没有文章{% endif %}</p>
-    <p class="empty-desc">
-      {% if q or current_category or current_tag %}
-        换个关键词或标签试试，或者 <a href="{% url 'blog:list' %}">看看全部文章</a>。
-      {% else %}
-        去 <a href="/admin/">后台</a> 写第一篇吧。
+    </section>
+
+    <div class="section-head">
+      <h2>{% if q or current_category or current_tag %}筛选结果{% else %}最新文章{% endif %}</h2>
+      <span class="section-meta">
+        共 {{ total_count }} 篇
+        {% if q %}· 关键词「{{ q }}」{% endif %}
+        {% if current_category %}· 分类「{{ current_category.name }}」{% endif %}
+        {% if current_tag %}· 标签「{{ current_tag.name }}」{% endif %}
+        {% if q or current_category or current_tag %}<a href="{% url 'blog:list' %}" class="clear-filter">清除</a>{% endif %}
+      </span>
+    </div>
+
+    {% if posts %}
+      <div class="post-list">
+        {% for post in posts %}
+          <article class="post-card{% if post.cover %} has-cover{% endif %}">
+            {% if post.cover %}
+              <a class="post-card-cover" href="{% url 'blog:detail' post.pk %}" tabindex="-1" aria-hidden="true">
+                <img src="{{ post.cover.url }}" alt="" loading="lazy">
+              </a>
+            {% endif %}
+            <div class="post-card-body">
+              <div class="post-card-top">
+                {% if post.category %}
+                  <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+                {% endif %}
+                <time class="post-date" datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y-m-d" }}</time>
+                <span class="dot" aria-hidden="true">·</span>
+                <span class="read-time">约 {{ post.reading_time }} 分钟</span>
+                <span class="dot" aria-hidden="true">·</span>
+                <span class="view-count">{{ post.views }} 次浏览</span>
+              </div>
+              <h3 class="post-card-title">
+                <a href="{% url 'blog:detail' post.pk %}">{{ post.title }}</a>
+              </h3>
+              <p class="post-card-summary">{{ post.summary }}</p>
+              {% if post.tags.all %}
+                <p class="post-card-tags">
+                  {% for t in post.tags.all %}<a class="tag tag-light" href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}</a>{% endfor %}
+                </p>
+              {% endif %}
+              <a class="post-card-more" href="{% url 'blog:detail' post.pk %}">阅读全文 <span aria-hidden="true">→</span></a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+
+      {% if page_obj.paginator.num_pages > 1 %}
+        <nav class="pager" aria-label="分页">
+          {% if page_obj.has_previous %}
+            <a class="pager-step" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">← 上一页</a>
+          {% else %}
+            <span class="pager-step disabled">← 上一页</span>
+          {% endif %}
+
+          <span class="pager-pages">
+            {% for num in page_numbers %}
+              {% if num %}
+                {% if num == page_obj.number %}
+                  <span class="current" aria-current="page">{{ num }}</span>
+                {% else %}
+                  <a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ num }}">{{ num }}</a>
+                {% endif %}
+              {% else %}
+                <span class="gap">…</span>
+              {% endif %}
+            {% endfor %}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a class="pager-step" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">下一页 →</a>
+          {% else %}
+            <span class="pager-step disabled">下一页 →</span>
+          {% endif %}
+        </nav>
       {% endif %}
-    </p>
+    {% else %}
+      <div class="empty">
+        <p class="empty-title">{% if q or current_category or current_tag %}没有找到符合条件的文章{% else %}还没有文章{% endif %}</p>
+        <p class="empty-desc">
+          {% if q or current_category or current_tag %}
+            换个关键词或标签试试，或者 <a href="{% url 'blog:list' %}">看看全部文章</a>。
+          {% else %}
+            去 <a href="/admin/">后台</a> 写第一篇吧。
+          {% endif %}
+        </p>
+      </div>
+    {% endif %}
   </div>
-{% endif %}
+
+  {% sidebar %}
+</div>
 {% endblock %}

@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
+{% load blog_extras %}
+{# 上面的 extends 必须是第一个标签；load 放它后面 #}
 
-{% block title %}{{ post.title }} · 我的博客{% endblock %}
+{% block title %}{{ post.title }} · {{ site.site_name }}{% endblock %}
 {% block description %}{{ post.summary }}{% endblock %}
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ post.title }}{% endblock %}
@@ -14,88 +16,97 @@
 {% endblock %}
 
 {% block content %}
-<article class="post">
-  <header class="post-header">
-    <div class="post-kicker">
-      {% if post.category %}
-        <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+<div class="page-grid">
+  <div class="page-main">
+    <article class="post">
+      <header class="post-header">
+        <div class="post-kicker">
+          {% if post.category %}
+            <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
+          {% endif %}
+          <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
+          <span class="dot" aria-hidden="true">·</span>
+          <span>约 {{ post.reading_time }} 分钟读完</span>
+          <span class="dot" aria-hidden="true">·</span>
+          <span>{{ post.views }} 次浏览</span>
+          <a class="post-comment-link" href="#comments">{{ comment_count }} 条评论</a>
+        </div>
+        <h1 class="post-title">{{ post.title }}</h1>
+        {% if post.tags.all %}
+          <div class="post-tags">
+            {% for t in post.tags.all %}
+              <a class="tag tag-light" href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </header>
+
+      {% if post.cover %}
+        <figure class="post-cover">
+          <img src="{{ post.cover.url }}" alt="{{ post.title }} 封面">
+        </figure>
       {% endif %}
-      <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
-      <span class="dot" aria-hidden="true">·</span>
-      <span>约 {{ post.reading_time }} 分钟读完</span>
-      <span class="dot" aria-hidden="true">·</span>
-      <span>{{ post.views }} 次浏览</span>
-    </div>
-    <h1 class="post-title">{{ post.title }}</h1>
-    {% if post.tags.all %}
-      <div class="post-tags">
-        {% for t in post.tags.all %}
-          <a class="tag tag-light" href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}</a>
-        {% endfor %}
-      </div>
-    {% endif %}
-  </header>
 
-  {% if post.cover %}
-    <figure class="post-cover">
-      <img src="{{ post.cover.url }}" alt="{{ post.title }} 封面">
-    </figure>
-  {% endif %}
+      {% if toc|length > 1 %}
+        <nav class="toc" aria-label="本文目录">
+          <p class="toc-title">本文目录</p>
+          <ol class="toc-list">
+            {% for item in toc %}
+              <li class="toc-item toc-level-{{ item.level }}">
+                <a href="#{{ item.anchor }}">{{ item.text }}</a>
+              </li>
+            {% endfor %}
+          </ol>
+        </nav>
+      {% endif %}
 
-  {% if toc|length > 1 %}
-    <nav class="toc" aria-label="本文目录">
-      <p class="toc-title">本文目录</p>
-      <ol class="toc-list">
-        {% for item in toc %}
-          <li class="toc-item toc-level-{{ item.level }}">
-            <a href="#{{ item.anchor }}">{{ item.text }}</a>
-          </li>
-        {% endfor %}
-      </ol>
-    </nav>
-  {% endif %}
+      <div class="post-body">{{ post.body_html|safe }}</div>
 
-  <div class="post-body">{{ post.body_html|safe }}</div>
-
-  <nav class="post-nav" aria-label="上一篇 / 下一篇">
-    {% if prev_post %}
-      <a class="post-nav-item" href="{% url 'blog:detail' prev_post.pk %}">
-        <span class="post-nav-label">← 上一篇</span>
-        <span class="post-nav-title">{{ prev_post.title }}</span>
-      </a>
-    {% else %}
-      <span class="post-nav-item post-nav-empty"></span>
-    {% endif %}
-    {% if next_post %}
-      <a class="post-nav-item post-nav-next" href="{% url 'blog:detail' next_post.pk %}">
-        <span class="post-nav-label">下一篇 →</span>
-        <span class="post-nav-title">{{ next_post.title }}</span>
-      </a>
-    {% else %}
-      <span class="post-nav-item post-nav-empty"></span>
-    {% endif %}
-  </nav>
-
-  {% if related_posts %}
-    <section class="related" aria-label="相关文章">
-      <h2 class="related-title">相关文章</h2>
-      <div class="related-grid">
-        {% for rp in related_posts %}
-          <a class="related-card" href="{% url 'blog:detail' rp.pk %}">
-            {% if rp.cover %}
-              <span class="related-cover"><img src="{{ rp.cover.url }}" alt="" loading="lazy"></span>
-            {% endif %}
-            <span class="related-info">
-              <span class="related-cat">{{ rp.category.name|default:"文章" }}</span>
-              <span class="related-name">{{ rp.title }}</span>
-              <span class="related-meta">{{ rp.created_at|date:"Y-m-d" }} · 约 {{ rp.reading_time }} 分钟</span>
-            </span>
+      <nav class="post-nav" aria-label="上一篇 / 下一篇">
+        {% if prev_post %}
+          <a class="post-nav-item" href="{{ prev_post.get_absolute_url }}">
+            <span class="post-nav-label">← 上一篇</span>
+            <span class="post-nav-title">{{ prev_post.title }}</span>
           </a>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
-</article>
+        {% else %}
+          <span class="post-nav-item post-nav-empty"></span>
+        {% endif %}
+        {% if next_post %}
+          <a class="post-nav-item post-nav-next" href="{{ next_post.get_absolute_url }}">
+            <span class="post-nav-label">下一篇 →</span>
+            <span class="post-nav-title">{{ next_post.title }}</span>
+          </a>
+        {% else %}
+          <span class="post-nav-item post-nav-empty"></span>
+        {% endif %}
+      </nav>
 
-<p class="back"><a href="{% url 'blog:list' %}">← 返回首页</a></p>
+      {% if related_posts %}
+        <section class="related" aria-label="相关文章">
+          <h2 class="related-title">相关文章</h2>
+          <div class="related-grid">
+            {% for rp in related_posts %}
+              <a class="related-card" href="{{ rp.get_absolute_url }}">
+                {% if rp.cover %}
+                  <span class="related-cover"><img src="{{ rp.cover.url }}" alt="" loading="lazy"></span>
+                {% endif %}
+                <span class="related-info">
+                  <span class="related-cat">{{ rp.category.name|default:"文章" }}</span>
+                  <span class="related-name">{{ rp.title }}</span>
+                  <span class="related-meta">{{ rp.created_at|date:"Y-m-d" }} · 约 {{ rp.reading_time }} 分钟</span>
+                </span>
+              </a>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    </article>
+
+    {% include 'comments/_section.html' %}
+
+    <p class="back"><a href="{% url 'blog:list' %}">← 返回首页</a></p>
+  </div>
+
+  {% sidebar %}
+</div>
 {% endblock %}

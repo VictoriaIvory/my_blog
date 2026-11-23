@@ -1,0 +1,70 @@
+<aside class="sidebar" aria-label="侧边栏">
+  <section class="side-card">
+    <h3 class="side-title">最新文章</h3>
+    <ul class="side-list">
+      {% for p in latest_posts %}
+        <li><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></li>
+      {% empty %}
+        <li class="side-empty">还没有文章</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="side-card">
+    <h3 class="side-title">最多阅读</h3>
+    <ul class="side-list side-list-views">
+      {% for p in popular_posts %}
+        <li><a href="{{ p.get_absolute_url }}">{{ p.title }}</a><span class="side-views">{{ p.views }}</span></li>
+      {% empty %}
+        <li class="side-empty">还没有数据</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% if tags %}
+    <section class="side-card">
+      <h3 class="side-title">标签云</h3>
+      <div class="side-tags">
+        {% for t in tags %}
+          <a href="{% url 'blog:list' %}?tag={{ t.name|urlencode }}">{{ t.name }}<span>{{ t.post_count }}</span></a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if latest_comments %}
+    <section class="side-card">
+      <h3 class="side-title">最新评论</h3>
+      <ul class="side-comments">
+        {% for c in latest_comments %}
+          <li>
+            <a href="{{ c.post.get_absolute_url }}#comment-{{ c.pk }}">
+              <strong>{{ c.author.username }}</strong>：{{ c.body|truncatechars:40 }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  {% if nav_pages %}
+    <section class="side-card">
+      <h3 class="side-title">页面</h3>
+      <ul class="side-list">
+        {% for p in nav_pages %}
+          <li><a href="{{ p.get_absolute_url }}">{{ p.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <section class="side-card side-about">
+    <h3 class="side-title">关于本站</h3>
+    <p>{{ site.site_description }}</p>
+    <p class="side-links">
+      <a href="{% url 'blog:about' %}">关于</a>
+      <a href="{% url 'blog:feed' %}">RSS</a>
+      <a href="/admin/" target="_blank" rel="noopener">后台</a>
+    </p>
+  </section>
+</aside>

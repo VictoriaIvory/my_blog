@@ -1,0 +1,19 @@
+<div class="comment depth-{{ node.depth }}" id="comment-{{ node.comment.pk }}">
+  <div class="comment-head">
+    <span class="comment-author">{{ node.comment.author.username }}</span>
+    {% if node.comment.author.is_staff %}<span class="comment-badge">博主</span>{% endif %}
+    {% if node.comment.parent_id %}<span class="comment-reply-to">回复 @{{ node.comment.parent.author.username }}</span>{% endif %}
+    <time class="comment-time">{{ node.comment.created_at|date:"Y-m-d H:i" }}</time>
+    {% if comments_open and user.is_authenticated %}
+      <a class="comment-reply" href="{{ post.get_absolute_url }}?reply={{ node.comment.pk }}#comment-form">回复</a>
+    {% endif %}
+  </div>
+  <div class="comment-body">{{ node.comment.body|linebreaks }}</div>
+  {% if node.children %}
+    <div class="comment-children">
+      {% for child in node.children %}
+        {% include 'comments/_comment.html' with node=child %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

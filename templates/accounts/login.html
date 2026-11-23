@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 · {{ site.site_name }}{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-card">
+    <h1 class="form-title">登录</h1>
+    <p class="form-desc">登录后可以发表评论、管理自己的评论。</p>
+
+    {% if form.non_field_errors %}
+      <div class="form-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <form method="post" class="stack-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <label class="form-field">
+        <span>用户名</span>
+        <input class="form-input" type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label class="form-field">
+        <span>密码</span>
+        <input class="form-input" type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn-primary btn-block" type="submit">登录</button>
+    </form>
+
+    <p class="form-switch">还没有账号？<a href="{% url 'accounts:register' %}">注册一个</a></p>
+  </div>
+</div>
+{% endblock %}

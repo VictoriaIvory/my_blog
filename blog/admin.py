@@ -1,13 +1,14 @@
 """后台管理配置。
 
 注册模型后，/admin/ 就自动有增删改查页面，不用写一行前端代码。
-2026-11-16：加标签、封面图、阅读量后同步更新。
+2026-11-16：加标签、封面图、阅读量。
+2026-11-23：加站点设置、独立页面开关、评论审核入口。
 """
 
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Category, Post, Tag
+from .models import BlogSettings, Category, Post, Tag
 
 
 @admin.register(Category)
@@ -16,8 +17,8 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
     def post_count(self, obj):
-        """每个分类下有几篇已发布文章。"""
-        return obj.posts.filter(is_published=True).count()
+        """每个分类下有几篇已发布文章（不含独立页面）。"""
+        return obj.posts.filter(is_published=True, is_page=False).count()
     post_count.short_description = '已发布文章数'
 
 
@@ -27,14 +28,14 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
     def post_count(self, obj):
-        return obj.posts.filter(is_published=True).count()
+        return obj.posts.filter(is_published=True, is_page=False).count()
     post_count.short_description = '已发布文章数'
 
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ['title', 'category', 'views', 'is_published', 'created_at', 'updated_at']
-    list_filter = ['is_published', 'category', 'tags', 'created_at']
+    list_display = ['title', 'is_page', 'category', 'views', 'is_published', 'created_at']
+    list_filter = ['is_published', 'is_page', 'category', 'tags', 'created_at']
     search_fields = ['title', 'body']
     date_hierarchy = 'created_at'
     # 编辑页里哪些字段只读（时间、阅读量由系统自动写）
@@ -43,7 +44,8 @@ class PostAdmin(admin.ModelAdmin):
 
     fieldsets = [
         ('内容', {'fields': ['title', 'body', 'cover', 'cover_preview']}),
-        ('归类', {'fields': ['category', 'tags', 'is_published']}),
+        ('归类', {'fields': ['category', 'tags', 'is_published', 'is_page']}),
+        ('互动', {'fields': ['allow_comments']}),
         ('统计', {'fields': ['views', 'created_at', 'updated_at']}),
     ]
 
@@ -55,3 +57,35 @@ class PostAdmin(admin.ModelAdmin):
                 obj.cover.url,
             )
         return '（未上传封面图）'
+
+
+@admin.register(BlogSettings)
+class BlogSettingsAdmin(admin.ModelAdmin):
+    """站点设置是单例：只允许一行，且不允许在后台新增第二行。"""
+
+    fieldsets = [
+        ('基本信息', {
+            'fields': ['site_name', 'site_description', 'site_keywords'],
+        }),
+        ('页脚 / 备案', {
+            'fields': ['footer_text', 'beian_code'],
+        }),
+        ('统计代码', {
+            'fields': ['analytics_code'],
+            'description': '原样插入页面底部，只粘贴可信的统计脚本（如百度统计）。',
+        }),
+        ('互动', {
+            'fields': ['allow_site_comments', 'comment_need_review'],
+        }),
+        ('侧边栏', {
+            'fields': ['sidebar_article_count', 'sidebar_comment_count'],
+        }),
+    ]
+    readonly_fields = ['updated_at']
+
+    def has_add_permission(self, request):
+        # 已经有那一行就不让再加
+        return not BlogSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False

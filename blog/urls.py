@@ -16,6 +16,8 @@ urlpatterns = [
     path('', views.post_list, name='list'),
     # 详情：http://127.0.0.1:8000/post/3/
     path('post/<int:pk>/', views.post_detail, name='detail'),
+    # 独立页面（关于/留言板等）：http://127.0.0.1:8000/page/2/
+    path('page/<int:pk>/', views.page_detail, name='page_detail'),
     # 归档：http://127.0.0.1:8000/archive/
     path('archive/', views.archive, name='archive'),
     # 关于：http://127.0.0.1:8000/about/
