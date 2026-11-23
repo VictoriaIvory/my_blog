@@ -202,6 +202,12 @@ STORAGES = {
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# 全文搜索索引目录（Whoosh 生成的文件）——2026-11-23 第三批加
+# 由 `python manage.py rebuild_search_index` 生成，不进 Git。
+# 测试里用 override_settings(SEARCH_INDEX_DIR=临时目录) 覆盖，
+# 所以 search_index.py 每次现读这个值，不缓存在模块级。
+SEARCH_INDEX_DIR = BASE_DIR / 'search_index'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

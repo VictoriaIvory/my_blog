@@ -4,11 +4,15 @@
 2026-11-16：加标签、封面图、阅读量。
 2026-11-23：加站点设置、独立页面开关、评论审核入口。
 2026-11-23：用「状态 + 发布时间」替代「已发布」开关（草稿 / 定时发布）。
+2026-11-23：后台保存 / 删除文章时同步全文搜索索引（第三批）。
 """
+
+import logging
 
 from django.contrib import admin
 from django.utils.html import format_html
 
+from . import search_index
 from .models import (
     STATUS_DRAFT,
     STATUS_PUBLISHED,
@@ -18,6 +22,8 @@ from .models import (
     Tag,
     visible_condition,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(Category)
@@ -83,6 +89,45 @@ class PostAdmin(admin.ModelAdmin):
     @admin.action(description='把选中的文章转为「草稿」')
     def make_draft(self, request, queryset):
         queryset.update(status=STATUS_DRAFT)
+
+    # ---------- 全文搜索索引同步（2026-11-23 第三批） ----------
+    # 说明：改「状态 / 发布时间」不需要重建索引——索引里草稿和定时文章本来就有，
+    # 查询时用 Post.objects.visible() 过滤，到点自动出现在结果里。
+    # 这里只处理「新增 / 改标题正文 / 改是否独立页面 / 删除」这些内容变化。
+
+    @staticmethod
+    def _sync_search_index(post):
+        """保存后同步索引；索引没建 / 依赖缺失只记调试日志，不能影响后台保存。"""
+        try:
+            if post.is_page:
+                search_index.delete_post(post.pk)
+            else:
+                search_index.index_post(post)
+        except Exception:  # SearchIndexUnavailable 等 —— 后台照常保存
+            logger.debug('同步全文搜索索引失败（文章 %s）', post.pk, exc_info=True)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        self._sync_search_index(obj)
+
+    def delete_model(self, request, obj):
+        post_id = obj.pk
+        super().delete_model(request, obj)
+        self._delete_from_index([post_id])
+
+    def delete_queryset(self, request, queryset):
+        post_ids = list(queryset.values_list('pk', flat=True))
+        super().delete_queryset(request, queryset)
+        self._delete_from_index(post_ids)
+
+    @staticmethod
+    def _delete_from_index(post_ids):
+        for post_id in post_ids:
+            try:
+                search_index.delete_post(post_id)
+            except Exception:  # 索引不可用就都跳过，别在后台删除流程里报错
+                logger.debug('从全文搜索索引删除失败（文章 %s）', post_id, exc_info=True)
+                return
 
 
 @admin.register(BlogSettings)

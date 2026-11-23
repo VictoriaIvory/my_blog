@@ -4,12 +4,16 @@
   /                    全部文章
   /?category=Django    只看某个分类
   /?tag=部署           只看某个标签
-  /?q=饼图             搜索标题或正文
+  /?q=饼图             搜索标题或正文（只是列表的一个筛选条件）
   /?page=2             第二页
 可以叠加：/?category=Django&tag=部署&q=模板&page=2
 
+全文搜索是独立的页面：/search/?q=饼图（第三批，2026-11-23）
+—— 结果来自 Whoosh 索引，带标题/正文高亮；没建索引时自动退回数据库。
+
 2026-11-16 新增：标签筛选、阅读量计数、相关文章、归档页、关于页。
 2026-11-23 新增（复现 DjangoBlog）：评论、独立页面、侧边栏、站点设置。
+2026-11-23 新增（复现第三批）：全文搜索结果页（与首页的 ?q= 筛选并存）。
 """
 
 from django.core.paginator import Paginator
@@ -22,9 +26,14 @@ from comments.utils import build_comment_tree, reply_target
 
 from .markdown_render import extract_toc
 from .models import BlogSettings, Category, Post, Tag, visible_condition
+from .search_index import search_posts
 
 # 每页显示几篇。放成常量，以后想改只改这一处。
 PAGE_SIZE = 5
+
+# 全文搜索结果每页几条。比首页的 PAGE_SIZE 大：搜索结果卡片没有封面图，
+# 一条只占几行，一页多列几条更好用；分页太多反而不好翻。
+SEARCH_PAGE_SIZE = 10
 
 
 def _page_numbers(page_obj):
@@ -130,6 +139,56 @@ def post_list(request):
         'latest_post': Post.objects.visible().filter(is_page=False).first(),
     }
     return render(request, 'blog/post_list.html', context)
+
+
+def search(request):
+    """全文搜索页（/search/?q=关键词）。
+
+    和首页的 `?q=` 是两套东西，别混：
+      - 首页 `?q=`：数据库 icontains，只是列表筛选条件之一（可与分类/标签叠加），
+        结果还是普通文章卡片；
+      - `/search/`：独立搜索结果页，结果来自 search_index（Whoosh 索引，
+        没建索引/依赖缺失时自动退回数据库），每条带标题、正文高亮和摘要。
+
+    索引层（search_index.search_posts）已经保证只返回前台可见的文章
+    （草稿、未到点的定时文章会被过滤），这里不再重复筛。
+    """
+    # 1. 取关键词并去掉首尾空格：复制粘贴常带空格，不处理会搜不到
+    q = request.GET.get('q', '').strip()
+
+    hits = []
+    total_count = 0
+    used_index = None   # None：还没搜（空关键词）；True：走索引；False：数据库兜底
+
+    if q:
+        # 2. 搜索。hits 是普通 list（不是 QuerySet），所以 Paginator 直接吃 list 就行
+        hits, used_index = search_posts(q)
+        paginator = Paginator(hits, SEARCH_PAGE_SIZE)
+        page_obj = paginator.get_page(request.GET.get('page'))
+        hits = page_obj.object_list    # 当前页的命中结果（page_obj.object_list 就是 list 切片）
+        total_count = paginator.count
+    else:
+        # 没输入关键词：也给一个空的分页对象，模板里 page_obj 永远存在，
+        # 不用到处写 {% if page_obj %}
+        page_obj = Paginator([], SEARCH_PAGE_SIZE).get_page(1)
+
+    # 3. 翻页链接要保留 q（去掉 page 后重新拼），和首页分页的做法一致
+    params = request.GET.copy()
+    params.pop('page', None)
+    querystring = params.urlencode()
+
+    context = {
+        'q': q,
+        'page_obj': page_obj,
+        'hits': hits,
+        'total_count': total_count,
+        'used_index': used_index,
+        'page_numbers': _page_numbers(page_obj),
+        'querystring': querystring,
+        # 空状态给几个热门标签，用户不知道搜什么时可以直接点
+        'tags': list(_tag_queryset().order_by('-post_count', 'name')[:10]),
+    }
+    return render(request, 'blog/search.html', context)
 
 
 def _related_posts(post, limit=3):

@@ -41,6 +41,8 @@
   --glow-1: rgba(47, 111, 78, .1);             /* 页面顶部光斑（绿） */
   --glow-2: rgba(176, 122, 42, .08);           /* 页面顶部光斑（暖金） */
   --selection-bg: rgba(47, 111, 78, .18);      /* 选中文字底色 */
+  --mark-bg: rgba(176, 122, 42, .24);          /* 搜索关键词高亮底色（暖金） */
+  --mark-ink: #4a3208;                         /* 搜索关键词高亮文字（深褐，保证对比度） */
   --header-bg: rgba(247, 244, 238, .84);       /* 顶栏毛玻璃底色 */
   --footer-bg: rgba(239, 236, 229, .55);       /* 页脚底色 */
   --card-translucent: rgba(255, 253, 249, .6); /* 空状态卡片底 */
@@ -1538,6 +1540,159 @@ main.wrap {
   border: 0;
 }
 
+/* ==========================================================================
+   全文搜索（2026-11-23 · 复现 DjangoBlog 第三批）
+   --------------------------------------------------------------------------
+   1) .nav-search   顶栏放大镜入口（和 .theme-toggle 同尺寸的圆形图标链接）
+   2) 搜索页       页头下的表单 / 结果卡片 / 摘要 / 关键词高亮
+   高亮配色用 --mark-bg / --mark-ink 两个变量：亮色是暖金底 + 深褐字，
+   深色取值在文件末尾两段 palette 里覆盖（显式切换 + 跟随系统），两处保持一致。
+   ========================================================================== */
+
+/* 顶栏搜索图标：不加文字，窄屏也不会把导航挤坏 */
+.site-nav .nav-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin-left: 4px;
+  padding: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.site-nav .nav-search svg { display: block; width: 17px; height: 17px; }
+
+.site-nav .nav-search:hover {
+  color: var(--brand);
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+/* 当前就在搜索页：和别的导航项一样给「选中」态 */
+.site-nav .nav-search.active {
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+}
+
+/* 搜索页表单：复用首页 .search 的样式，上下留白小一点 */
+.search-toolbar { margin: 0 0 34px; }
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 一条搜索结果：和文章卡片同一套卡片语言，但更轻（没有封面） */
+.search-result {
+  padding: 20px 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.search-result:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--line-strong);
+}
+
+.search-result-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  line-height: 1.5;
+  letter-spacing: -.01em;
+}
+
+.search-result-title a { color: var(--ink); text-decoration: none; }
+.search-result-title a:hover { color: var(--brand); }
+
+.search-result-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* 正文摘要：模型已经转义 + 只含 <mark>，模板里 |safe 输出 */
+.search-snippet {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.search-result .post-card-tags { margin: 12px 0 0; }
+
+/* 关键词高亮：醒目但不刺眼；深色可读性见文件末尾 palette 里的变量覆盖 */
+mark.search-hit {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--mark-bg);
+  color: var(--mark-ink);
+}
+
+/* 索引没建时的提示条（数据库兜底） */
+.search-hint {
+  margin: 0 0 20px;
+  padding: 11px 16px;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius-sm);
+}
+
+.search-hint code {
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: .92em;
+  color: var(--ink);
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+/* 空状态里的热门标签（点一下直接搜该标签名） */
+.search-hot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 0;
+}
+
+.search-hot-tags .tag { gap: 5px; }
+
+.search-hot-tags span { color: var(--muted); font-size: 11px; }
+
+@media (max-width: 760px) {
+  .site-nav .nav-search { width: 32px; height: 32px; margin-left: 2px; }
+  .site-nav .nav-search svg { width: 16px; height: 16px; }
+  .search-result { padding: 18px 18px 16px; }
+  .search-result-title { font-size: 18.5px; }
+}
+
+@media (max-width: 480px) {
+  .search-result { padding: 16px 16px 14px; }
+}
+
 /* ---------- 窄屏 ---------- */
 @media (max-width: 980px) {
   /* 窄屏放不下两栏：侧边栏先隐藏，保证正文可读性 */
@@ -1720,6 +1875,8 @@ main.wrap {
   --warn-line: #554326;
   --info-bg: #1d2733;
   --info-line: #2f3f52;
+  --mark-bg: rgba(217, 169, 94, .28);          /* 关键词高亮：暖金底 */
+  --mark-ink: #f6e6c8;                         /* 关键词高亮：暖白字 */
 }
 
 /* ---------- 深色配色 · 跟随系统（未显式选亮色时） ----------
@@ -1776,6 +1933,8 @@ main.wrap {
     --warn-line: #554326;
     --info-bg: #1d2733;
     --info-line: #2f3f52;
+    --mark-bg: rgba(217, 169, 94, .28);
+    --mark-ink: #f6e6c8;
   }
 }
 

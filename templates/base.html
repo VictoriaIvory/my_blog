@@ -80,6 +80,15 @@
         <a href="{% url 'blog:list' %}" class="{% if request.resolver_match.url_name == 'list' or request.resolver_match.url_name == 'detail' %}active{% endif %}">文章</a>
         <a href="{% url 'blog:archive' %}" class="{% if request.resolver_match.url_name == 'archive' %}active{% endif %}">归档</a>
         <a href="{% url 'blog:about' %}" class="{% if request.resolver_match.url_name == 'about' %}active{% endif %}">关于</a>
+        {# 全文搜索入口：图标不占宽度，窄屏不会挤坏导航；语义交给 aria-label / title #}
+        <a href="{% url 'blog:search' %}"
+           class="nav-search{% if request.resolver_match.url_name == 'search' %} active{% endif %}"
+           aria-label="全文搜索" title="全文搜索">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </a>
         {% if user.is_authenticated %}
           <a href="{% url 'accounts:profile' %}" class="nav-user" title="个人中心">{{ user.username }}</a>
           <form class="nav-logout" action="{% url 'accounts:logout' %}" method="post">
@@ -130,6 +139,7 @@
         <a href="{% url 'blog:list' %}">首页</a>
         <a href="{% url 'blog:archive' %}">归档</a>
         <a href="{% url 'blog:about' %}">关于</a>
+        <a href="{% url 'blog:search' %}">搜索</a>
         {% for page in nav_pages %}<a href="{{ page.get_absolute_url }}">{{ page.title }}</a>{% endfor %}
         <a href="{% url 'blog:feed' %}">RSS</a>
         <a href="https://github.com/VictoriaIvory/my_blog" target="_blank" rel="noopener">GitHub</a>

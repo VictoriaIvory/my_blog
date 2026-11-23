@@ -5,3 +5,7 @@ bleach==6.3.0
 Pygments==2.19.2
 Pillow==11.3.0
 whitenoise==6.11.0
+
+# 全文搜索：Whoosh 索引 + jieba 中文分词（不引 django-haystack）
+whoosh==2.7.4
+jieba==0.42.1

@@ -33,6 +33,9 @@ backups/
 # 备份方式：把 media/ 文件夹整体拷走，或使用对象存储
 media/
 
+# 全文搜索索引（Whoosh 生成，python manage.py rebuild_search_index 可重建）
+search_index/
+
 # 日志
 *.log
 

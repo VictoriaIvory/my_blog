@@ -82,3 +82,14 @@ class Command(BaseCommand):
 
         if pages:
             self.stdout.write(self.style.SUCCESS('已创建 %d 个页面' % pages))
+
+        # 2026-11-23：顺手重建全文搜索索引。失败（例如依赖没装）只提示，
+        # 不影响演示数据本身；之后可以单独跑 rebuild_search_index。
+        try:
+            from blog.search_index import rebuild_index
+
+            count = rebuild_index()
+            self.stdout.write(self.style.SUCCESS(f'全文索引已重建：{count} 篇'))
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(
+                f'全文索引未重建（{exc}），可稍后运行 manage.py rebuild_search_index'))

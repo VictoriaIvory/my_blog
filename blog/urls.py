@@ -22,6 +22,9 @@ urlpatterns = [
     path('archive/', views.archive, name='archive'),
     # 关于：http://127.0.0.1:8000/about/
     path('about/', views.about, name='about'),
+    # 全文搜索：http://127.0.0.1:8000/search/?q=饼图
+    # 独立的结果页（带高亮/摘要），和首页 ?q= 的筛选是两套入口
+    path('search/', views.search, name='search'),
     # RSS 订阅：http://127.0.0.1:8000/feed/
     path('feed/', LatestPostsFeed(), name='feed'),
     # 站点地图：http://127.0.0.1:8000/sitemap.xml
