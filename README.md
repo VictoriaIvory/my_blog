@@ -13,6 +13,7 @@
 | 4 | 部署上线 | — **不做**（本地项目，无云端需求；部署手册留档备用） |
 | **5** | 按 GitHub 参考项目 DjangoBlog 复现功能（第一批） | ✅ 2026-11-23（评论/登录/页面/侧边栏/站点设置） |
 | **6** | 复现 DjangoBlog 第二批：草稿+定时发布、深色模式 | ✅ 2026-11-23 |
+| **7** | 复现 DjangoBlog 第三批：Whoosh 全文搜索 + 关键词高亮 | ✅ 2026-11-23 |
 
 ## 文章（3 篇）
 
@@ -20,13 +21,14 @@
 2. 《给博客加分类、搜索和分页，三个我以为半小时能搞定的东西》（2026-11-16）
 3. 《让室友用手机给我的投票 demo 投票：ALLOWED_HOSTS 那点事》（2026-11-16）
 
-## 已经能做什么（v1.4，2026-11-23）
+## 已经能做什么（v1.5，2026-11-23）
 
 | 功能 | 说明 |
 |---|---|
 | 写文章 | 后台写 Markdown：标题、列表、表格、代码块、图片；可传封面图 |
 | 分类 / 标签 | 分类是栏目（一个），标签是关键词（多个）；都能筛选 |
-| 搜索 | 标题 + 正文，不区分大小写，和分类/标签可叠加 |
+| 首页筛选 | 标题 + 正文，不区分大小写，和分类/标签可叠加（数据库 `icontains`） |
+| **全文搜索** | `/search/?q=`：Whoosh + jieba 中文分词，搜标题和正文，关键词用 `<mark>` 高亮，按相关度排序、每页 10 条；没建索引时自动退回数据库搜索 |
 | 分页 / 归档 | 每页 5 篇；归档页按年月分组 |
 | 阅读量 | 详情页每次阅读 +1，列表和详情都显示 |
 | 相关文章 | 详情页底部按标签、再按分类推荐 |
@@ -47,7 +49,7 @@
 | Python | 3.12.10 |
 | Django | 5.2.18 LTS |
 | 数据库 | SQLite |
-| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments + Pillow + WhiteNoise） |
+| 依赖 | `requirements.txt`（Django + python-dotenv + Markdown + bleach + Pygments + Pillow + WhiteNoise + **Whoosh + jieba**） |
 
 > ⚠️ **不能用 Python 3.14**：Django 5.2 官方支持 3.10–3.13。
 > 建虚拟环境时确认 `python --version` 是 3.12。
@@ -71,10 +73,13 @@ python manage.py migrate
 # 4 造演示数据（可选）：3 个分类、3 个标签 + 1 篇演示文章
 python manage.py seed_posts
 
-# 5 建后台账号（自己定用户名密码，仓库里不放密码）
+# 5 重建全文搜索索引（搜索页 /search/ 用；不建也能跑，会自动退回数据库搜索）
+python manage.py rebuild_search_index
+
+# 6 建后台账号（自己定用户名密码，仓库里不放密码）
 python manage.py createsuperuser
 
-# 6 启动
+# 7 启动
 python manage.py runserver
 ```
 
@@ -85,7 +90,8 @@ python manage.py runserver
 | 首页（文章列表） | <http://127.0.0.1:8000/> |
 | 分类筛选 | <http://127.0.0.1:8000/?category=Django> |
 | 标签筛选 | <http://127.0.0.1:8000/?tag=Django> |
-| 关键词搜索 | <http://127.0.0.1:8000/?q=饼图> |
+| 首页筛选（数据库搜索） | <http://127.0.0.1:8000/?q=饼图> |
+| **全文搜索（分词 + 高亮）** | <http://127.0.0.1:8000/search/?q=饼图> |
 | 分页 | <http://127.0.0.1:8000/?page=2> |
 | 文章详情 | <http://127.0.0.1:8000/post/1/> |
 | 归档 | <http://127.0.0.1:8000/archive/> |
@@ -111,17 +117,21 @@ myblog/
 │   ├── models.py           # Category 分类 + Tag 标签 + Post 文章 + BlogSettings 站点设置
 │   ├── markdown_render.py  # Markdown → HTML + 白名单清洗（阶段 3）
 │   ├── admin.py            # 后台配置（四个模型、封面预览、评论审核入口）
-│   ├── views.py            # 列表/详情/页面/归档/关于/robots
+│   ├── views.py            # 列表/详情/页面/归档/关于/robots/全文搜索
+│   ├── search_index.py     # 全文搜索索引（Whoosh + jieba + 高亮 + 数据库兜底）
 │   ├── feeds.py            # RSS 订阅源 /feed/
 │   ├── sitemap.py          # 站点地图 /sitemap.xml
 │   ├── context_processors.py   # 站点设置 + 导航页面（全站模板可用）
 │   ├── templatetags/blog_extras.py  # 侧边栏 inclusion tag
-│   ├── urls.py             # 8 条路由
+│   ├── urls.py             # 9 条路由
 │   ├── tests.py            # 106 个测试（草稿/定时发布等）
 │   ├── tests_theme.py      # 15 个深色模式测试（第二批）
+│   ├── tests_search_index.py# 25 个全文搜索索引测试（第三批）
+│   ├── tests_search.py     # 21 个搜索页面测试（第三批）
 │   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0005）
 │   └── management/commands/
 │       ├── seed_posts.py   # 造演示分类/标签/文章/页面
+│       ├── rebuild_search_index.py  # 重建全文搜索索引（第三批）
 │       └── backup.py       # 备份数据库 + media/ 到 backups/
 ├── comments/               # 评论应用（嵌套回复、审核、后台批量通过）
 │   ├── models.py           # Comment（自关联 parent）
@@ -137,6 +147,7 @@ myblog/
 │   │   ├── post_detail.html# 详情页（封面 + 目录 + 正文 + 上下篇 + 相关 + 评论）
 │   │   ├── page_detail.html# 独立页面（如留言板，也可评论）
 │   │   ├── _sidebar.html   # 侧边栏
+│   │   ├── search.html     # 全文搜索页（结果 + 高亮 + 分页）
 │   │   ├── archive.html    # 归档页（按年月分组）
 │   │   └── about.html      # 关于页
 │   ├── comments/           # _section.html + _comment.html（递归渲染回复）
@@ -146,8 +157,9 @@ myblog/
 │   ├── js/
 │   │   └── theme.js        # 深色模式切换（第二批，无依赖）
 │   └── css/
-│       ├── style.css       # 全站样式（约 1550 行，CSS 变量 + 响应式 + 深色模式，无框架）
+│       ├── style.css       # 全站样式（约 1770 行，CSS 变量 + 响应式 + 深色模式，无框架）
 │       └── pygments.css    # 代码高亮配色（Pygments 生成，勿手改）
+├── search_index/           # 全文搜索索引（Whoosh 生成，不进 Git；可 rebuild）
 ├── media/                  # 用户上传的封面图（不进 Git，见 .gitignore）
 ├── docs/04_部署手册.md     # PythonAnywhere 部署步骤 + 排查清单
 └── .github/workflows/tests.yml  # GitHub Actions：每次 push 自动跑测试
@@ -233,6 +245,27 @@ myblog/
   评论、计数、上下篇、admin 的可见性；深色模式的模板 / 无障碍属性 / 静态资源断言。
 
 > 第二批还剩的候选：Whoosh 全文搜索 + 高亮、友链页 + 作者页、简化插件机制。
+
+**复现参考项目 DjangoBlog（2026-11-23，第三批）**
+
+第三批补「找文章」的能力：**Whoosh 全文搜索 + 关键词高亮**。
+
+- **索引**：`blog/search_index.py` 直接用 Whoosh + `jieba.analyse.ChineseAnalyzer`
+  （不装 django-haystack），索引所有非独立页面文章（草稿/定时也入），
+  查询时用 `Post.objects.visible()` 过滤——改状态 / 到点不用重建索引。
+- **查询**：短语优先（按空白切段 → `Phrase` / `Term`，段间 OR），0 结果才宽松兜底
+  （长度 ≥2 的中文词或 ASCII 词），避免 jieba 单字切分把「zzzz不存在」拆成
+  「不/存/在」后命中全站；结果按相关度排序。
+- **高亮**：标题 + 正文 `plain_text()` 摘要，先 HTML 转义再包 `<mark class="search-hit">`，
+  XSS 安全；深色模式单独配色。
+- **兜底**：索引不存在 / 损坏时自动退回数据库 `icontains`，页面提示运行重建命令；
+  换电脑不会因为没索引而搜索报错。
+- **维护**：`python manage.py rebuild_search_index` 重建；后台保存 / 删除文章自动同步；
+  `seed_posts` 结尾自动重建。
+- **测试从 121 个加到 167 个**（`tests_search_index.py` 25 + `tests_search.py` 21）：
+  中文分词 / 短语精度 / 草稿与定时过滤 / 索引同步 / 高亮转义 / 分页 / 兜底提示 / 模板注释回归。
+
+> 第三批还剩的候选：友链页 + 作者页、简化插件机制。
 
 **部署加固 + 性能优化（2026-11-23）**
 
@@ -320,7 +353,12 @@ myblog/
 | 深色模式（CSS） | 第二套 CSS 变量 + `[data-theme="dark"]` + `@media (prefers-color-scheme: dark)` |
 | 主题持久化 | `localStorage` 键 `dark-mode-enabled` + `<head>` 里防闪烁内联脚本 |
 | 静态 JS | `static/js/theme.js`（普通 static 文件，`defer` 加载，无打包构建） |
-| 测试 | `blog/tests.py`（106 个）+ `blog/tests_theme.py`（15 个，深色模式） |
+| 全文搜索（索引） | `blog/search_index.py`：Whoosh `Schema`（ID + TEXT，`field_boost`）+ `jieba.analyse.ChineseAnalyzer` |
+| 中文分词查询 | 用索引同款分析器切词 + `whoosh.query.Or/Phrase/Term` 程序化构造（不碰 QueryParser） |
+| 关键词高亮 | 自己按词切段、先 `escape` 再包 `<mark class="search-hit">`（不用 Whoosh formatter） |
+| 管理命令 | `python manage.py rebuild_search_index`（`BaseCommand.handle`） |
+| 索引兜底 | 索引异常时退回数据库 `icontains`，`used_index` 标记走哪条路 |
+| 测试 | `blog/tests.py` 106 + `tests_theme.py` 15 + `tests_search.py` 21 + `tests_search_index.py` 25 = 167 个 |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -448,7 +486,7 @@ DjangoBlog 是线上系统，用了 MySQL、Redis、Elasticsearch、Tailwind/Vit
 这些是「部署与规模」问题的解法，不是「个人本地博客」的问题。
 照搬会先装一堆环境、跑不起来，学到的反而是运维而不是 Django。
 所以按功能拆：评论、登录、页面、侧边栏、站点设置都在我们的技术栈里重写；
-搜索先用 `icontains`，不做 Whoosh/ES；前端继续手写 CSS。
+搜索阶段 2 先用 `icontains`，第三批再上本地 Whoosh（仍然不引 Elasticsearch）；前端继续手写 CSS。
 
 **复现参考项目：评论区为什么要审核开关？**
 参考项目有 `comment_need_review`，这是很现实的需求：个人博客一旦被爬虫/广告盯上，
@@ -480,6 +518,21 @@ CSS 没法把 `[data-theme="dark"]`（手动切换）和 `@media (prefers-color-
 （跟随系统）合成一个选择器，所以变量块只能写两遍。为了不让两边漂移，两段相邻放、
 注释写明同步修改，并在 `blog/tests_theme.py` 里断言两边关键字都存在。
 
+**复现参考项目：全文搜索为什么不用 django-haystack？**
+参考项目用 Haystack 是为了在 Whoosh / Elasticsearch 之间切换；本项目只有本地 Whoosh，
+多一层抽象只会多一堆配置和命令。直接用 Whoosh 的 `Schema` / `writer` / `search`，
+代码量更小、出错时看得懂栈。真的哪天要换 Elasticsearch，再套 Haystack 也不迟。
+
+**复现参考项目：全文搜索为什么要「短语优先」？**
+jieba 对未登录词会切成单字（「饼图」→ 饼 / 图）。如果查询就是这些单字的 OR，
+「zzzz不存在」会因为「不 / 存 / 在」命中全站文章。所以第一轮要求关键词在原文里
+连着出现（`Phrase`），0 结果才用「长度 ≥2 的词」宽松再搜一次；单字查询仍能命中。
+
+**复现参考项目：搜索索引为什么不进 Git？**
+索引是 `rebuild_search_index` 从数据库生成的派生物，进 Git 会变成每次改文章都变的
+二进制文件。换电脑 `pip install` 后跑一次命令即可；忘了跑也不影响用——
+`search_posts` 会自动退回数据库搜索，页面提示「索引还没建立」。
+
 ## 下一步（本地交付，不部署）
 
 **这个项目按本地项目交付，不需要上传到云端。** 平时就是：
@@ -498,11 +551,11 @@ python manage.py runserver
 - [ ] 组长要看时，当面打开电脑演示；不在场就发截图/录屏（Win+G 录 30 秒）
 - [ ] 每周跑一次 `python manage.py backup`（数据库 + 封面图备份到 `backups/`）
 
-### 复现 DjangoBlog：第二批进展
+### 复现 DjangoBlog：第三批进展
 
 - ✅ **草稿 + 定时发布**（2026-11-23）：`status` + `pub_time`，到点才出现在前台
 - ✅ **深色模式**（2026-11-23）：`prefers-color-scheme` + 顶栏手动切换
-- ⬜ **全文搜索 + 高亮**：本地用 Whoosh（不装 Elasticsearch），搜正文、关键词标黄
+- ✅ **全文搜索 + 高亮**（2026-11-23）：Whoosh + jieba 分词、`<mark>` 高亮、数据库兜底
 - ⬜ **友链页 + 作者页**：`Links` 模型、按作者筛文章
 - ⬜ **简化插件机制**：文章版权声明、外链图标、SEO 插件（参考项目有 8 个插件）
 
@@ -516,7 +569,6 @@ python manage.py runserver
 以后可选的加分项（都不是必须）：
 
 - 再写几篇文章（现在 3 篇，内容越多越像真博客）
-- 全文搜索（本地 Whoosh，带关键词高亮）
 - 友链页 / 作者页
 - 评论 / 点赞（个人本地项目意义不大）
 
@@ -530,6 +582,7 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 Copy-Item .env.example .env    # 按注释填密钥
 python manage.py migrate
+python manage.py rebuild_search_index   # 全文搜索索引（不跑也能用，会自动兜底）
 python manage.py createsuperuser
 python manage.py runserver
 ```
