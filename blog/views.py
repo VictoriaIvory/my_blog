@@ -21,7 +21,7 @@ from django.urls import reverse
 from comments.utils import build_comment_tree, reply_target
 
 from .markdown_render import extract_toc
-from .models import BlogSettings, Category, Post, Tag
+from .models import BlogSettings, Category, Post, Tag, visible_condition
 
 # 每页显示几篇。放成常量，以后想改只改这一处。
 PAGE_SIZE = 5
@@ -51,20 +51,25 @@ def _page_numbers(page_obj):
 
 
 def _tag_queryset():
-    """有已发布文章的标签，带文章数（标签云/筛选条用）。"""
+    """有可见文章的标签，带文章数（标签云/筛选条用）。
+
+    这里是对 Tag 做 annotate，没法直接链 .visible()，
+    所以借用 visible_condition('posts__') 拼出同样的条件。
+    """
     return Tag.objects.annotate(
         post_count=Count(
             'posts',
-            filter=Q(posts__is_published=True, posts__is_page=False),
+            filter=visible_condition('posts__') & Q(posts__is_page=False),
         ),
     ).filter(post_count__gt=0)
 
 
 def post_list(request):
-    """首页：列出已发布的文章，支持分类 / 标签 / 搜索 / 分页。"""
-    # 1. 先把「只显示已发布」这个底线定下来，后面的筛选都在它之上叠加
+    """首页：列出前台可见的文章，支持分类 / 标签 / 搜索 / 分页。"""
+    # 1. 先把「已发布且发布时间已到」这个底线定下来，后面的筛选都在它之上叠加
     posts = (
-        Post.objects.filter(is_published=True, is_page=False)
+        Post.objects.visible()
+        .filter(is_page=False)
         .select_related('category')
         .prefetch_related('tags')   # 卡片要显示标签，一次批量取，避免 N+1
     )
@@ -99,7 +104,8 @@ def post_list(request):
     querystring = params.urlencode()
 
     tags = list(_tag_queryset())
-    stats = Post.objects.filter(is_published=True).aggregate(
+    # 统计口径：只算前台可见的文章（不含独立页面、草稿、未到点的定时文章）
+    stats = Post.objects.visible().filter(is_page=False).aggregate(
         count=Count('pk'),
         views=Sum('views'),
     )
@@ -121,15 +127,16 @@ def post_list(request):
         'category_count': Category.objects.count(),
         'tag_count': len(tags),
         'total_views': stats['views'] or 0,
-        'latest_post': Post.objects.filter(is_published=True, is_page=False).first(),
+        'latest_post': Post.objects.visible().filter(is_page=False).first(),
     }
     return render(request, 'blog/post_list.html', context)
 
 
 def _related_posts(post, limit=3):
-    """相关文章：先按共同标签，再按同分类，最多 limit 篇。"""
+    """相关文章：先按共同标签，再按同分类，最多 limit 篇（只从可见文章里挑）。"""
     base = (
-        Post.objects.filter(is_published=True, is_page=False)
+        Post.objects.visible()
+        .filter(is_page=False)
         .exclude(pk=post.pk)
         .select_related('category')
     )
@@ -166,13 +173,14 @@ def _comment_context(request, post):
 def post_detail(request, pk):
     """文章详情页。
 
-    注意这里把 is_published=True 也写进了查询条件：
-    未发布的文章直接 404，而不是让人通过改 URL 里的数字看到草稿。
+    查询条件里带上 .visible()：草稿、以及「发布时间还没到」的定时文章
+    直接 404，而不是让人通过改 URL 里的数字提前看到。
+    这里故意不区分「作者本人」——参考项目 DjangoBlog 也没做作者预览，
+    本站没有作者字段，统一 404 最简单，预览稿请去后台看。
     """
     post = get_object_or_404(
-        Post.objects.select_related('category').prefetch_related('tags'),
+        Post.objects.visible().select_related('category').prefetch_related('tags'),
         pk=pk,
-        is_published=True,
         is_page=False,
     )
 
@@ -180,7 +188,7 @@ def post_detail(request, pk):
     Post.objects.filter(pk=post.pk).update(views=F('views') + 1)
     post.refresh_from_db(fields=['views'])
 
-    published = Post.objects.filter(is_published=True, is_page=False)
+    published = Post.objects.visible().filter(is_page=False)
 
     # 上一篇 = 更早的一篇（pk 更小）；下一篇 = 更新的一篇
     prev_post = published.filter(pk__lt=post.pk).order_by('-pk').first()
@@ -198,11 +206,13 @@ def post_detail(request, pk):
 
 
 def page_detail(request, pk):
-    """独立页面（关于、留言板等）：不进列表/搜索，但可以有评论。"""
+    """独立页面（关于、留言板等）：不进列表/搜索，但可以有评论。
+
+    和文章详情一样，草稿 / 未到发布时间的页面也 404。
+    """
     page = get_object_or_404(
-        Post.objects.select_related('category'),
+        Post.objects.visible().select_related('category'),
         pk=pk,
-        is_published=True,
         is_page=True,
     )
     Post.objects.filter(pk=page.pk).update(views=F('views') + 1)
@@ -217,15 +227,17 @@ def page_detail(request, pk):
 
 
 def archive(request):
-    """归档页：按年月把已发布文章分组。"""
+    """归档页：按「发布时间」的年月把前台可见文章分组。"""
+    # 只取渲染需要的字段（标题、发布时间、主键），少读正文省内存
     posts = (
-        Post.objects.filter(is_published=True, is_page=False)
-        .only('title', 'created_at', 'pk')
+        Post.objects.visible()
+        .filter(is_page=False)
+        .only('title', 'pub_time', 'pk')
     )
 
     groups = []
     for post in posts:
-        key = (post.created_at.year, post.created_at.month)
+        key = (post.pub_time.year, post.pub_time.month)
         if not groups or groups[-1]['key'] != key:
             groups.append({
                 'key': key,
@@ -244,7 +256,8 @@ def archive(request):
 def about(request):
     """关于页：这个博客是什么、用了什么技术、怎么搭的。"""
     return render(request, 'blog/about.html', {
-        'published_count': Post.objects.filter(is_published=True, is_page=False).count(),
+        # 只数前台可见的「文章」，独立页面不算
+        'published_count': Post.objects.visible().filter(is_page=False).count(),
         'category_count': Category.objects.count(),
         'tag_count': len(list(_tag_queryset())),
     })

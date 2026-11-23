@@ -11,7 +11,7 @@
   {% if post.cover %}
     <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ post.cover.url }}">
   {% endif %}
-  <meta property="article:published_time" content="{{ post.created_at|date:'c' }}">
+  <meta property="article:published_time" content="{{ post.pub_time|date:'c' }}">
   <meta property="article:modified_time" content="{{ post.updated_at|date:'c' }}">
 {% endblock %}
 
@@ -24,7 +24,7 @@
           {% if post.category %}
             <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
           {% endif %}
-          <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
+          <time datetime="{{ post.pub_time|date:'c' }}">{{ post.pub_time|date:"Y 年 n 月 j 日" }}</time>
           <span class="dot" aria-hidden="true">·</span>
           <span>约 {{ post.reading_time }} 分钟读完</span>
           <span class="dot" aria-hidden="true">·</span>
@@ -93,7 +93,7 @@
                 <span class="related-info">
                   <span class="related-cat">{{ rp.category.name|default:"文章" }}</span>
                   <span class="related-name">{{ rp.title }}</span>
-                  <span class="related-meta">{{ rp.created_at|date:"Y-m-d" }} · 约 {{ rp.reading_time }} 分钟</span>
+                  <span class="related-meta">{{ rp.pub_time|date:"Y-m-d" }} · 约 {{ rp.reading_time }} 分钟</span>
                 </span>
               </a>
             {% endfor %}

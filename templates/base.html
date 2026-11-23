@@ -4,6 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 浏览器界面颜色：随主题变化（内联脚本和 theme.js 会更新 content） -->
+  <meta name="theme-color" id="theme-color" content="#f7f4ee">
   <meta name="description" content="{% block description %}{{ site.site_description }}{% endblock %}">
   <title>{% block title %}{{ site.site_name }}{% endblock %}</title>
   <link rel="icon" href="{% static 'favicon.svg' %}" type="image/svg+xml">
@@ -16,6 +18,48 @@
   <meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
   <meta name="twitter:card" content="summary_large_image">
   {% block og_image %}{% endblock %}
+  <!-- 防闪烁：必须在样式表之前、第一帧渲染之前给 <html> 定下主题。
+       优先级：URL 参数 ?theme=dark|light > localStorage > 系统偏好。
+       逻辑与 static/js/theme.js 保持一致（两边都改的时候一起改）。 -->
+  <script>
+    (function () {
+      var STORAGE_KEY = 'dark-mode-enabled';
+      var root = document.documentElement;
+
+      function readSavedTheme() {
+        try {
+          var saved = window.localStorage.getItem(STORAGE_KEY);
+          if (saved === 'dark' || saved === 'light') return saved;
+        } catch (e) {}
+        return null;
+      }
+
+      // ?theme=dark / ?theme=light：方便截图、分享时固定主题，同时写入 localStorage
+      function readUrlTheme() {
+        try {
+          var matched = /[?&]theme=(dark|light)(?:[&#]|$)/.exec(window.location.search);
+          if (matched) {
+            try { window.localStorage.setItem(STORAGE_KEY, matched[1]); } catch (e) {}
+            return matched[1];
+          }
+        } catch (e) {}
+        return null;
+      }
+
+      function systemTheme() {
+        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          ? 'dark' : 'light';
+      }
+
+      var theme = readUrlTheme() || readSavedTheme() || systemTheme();
+      // 显式写 data-theme：浅色时也写，才能压过 CSS 的 prefers-color-scheme: dark
+      root.setAttribute('data-theme', theme);
+      window.__THEME__ = theme;
+
+      var meta = document.getElementById('theme-color');
+      if (meta) meta.setAttribute('content', theme === 'dark' ? '#131715' : '#f7f4ee');
+    })();
+  </script>
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
   <link rel="stylesheet" href="{% static 'css/pygments.css' %}">
 </head>
@@ -46,6 +90,20 @@
           <a href="{% url 'accounts:login' %}" class="{% if request.resolver_match.url_name == 'login' %}active{% endif %}">登录</a>
           <a href="{% url 'accounts:register' %}" class="{% if request.resolver_match.url_name == 'register' %}active{% endif %}">注册</a>
         {% endif %}
+        {# 深色 / 浅色切换：type=button 防止在表单里被当提交按钮；图标显隐由 CSS 控制 #}
+        <button type="button" class="theme-toggle" id="theme-toggle"
+                aria-label="切换到深色模式" aria-pressed="false"
+                title="切换到深色模式（Ctrl+Shift+D）">
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20.4 14.3A8.5 8.5 0 0 1 9.7 3.6a8.6 8.6 0 1 0 10.7 10.7Z"
+                  fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.4 5.4l1.5 1.5M17.1 17.1l1.5 1.5M18.6 5.4l-1.5 1.5M6.9 17.1l-1.5 1.5"
+                  fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
       </nav>
     </div>
   </header>
@@ -83,6 +141,8 @@
       </p>
     </div>
   </footer>
+  {# 主题切换逻辑：普通 static 脚本，defer 不阻塞渲染 #}
+  <script src="{% static 'js/theme.js' %}" defer></script>
   {% if site.analytics_code %}{{ site.analytics_code|safe }}{% endif %}
 </body>
 </html>

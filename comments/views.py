@@ -13,8 +13,12 @@ from .models import Comment, comment_needs_review
 @login_required
 @require_POST
 def post_comment(request, post_id):
-    """发表评论（登录后可用）。回复通过 hidden parent 字段传。"""
-    post = get_object_or_404(Post, pk=post_id, is_published=True)
+    """发表评论（登录后可用）。回复通过 hidden parent 字段传。
+
+    用 Post.objects.visible()：给草稿、或还没到发布时间的定时文章发评论
+    一律 404（和详情页口径一致，不能靠直接 POST 绕过）。
+    """
+    post = get_object_or_404(Post.objects.visible(), pk=post_id)
     site = BlogSettings.load()
 
     if not site.allow_site_comments or not post.allow_comments:

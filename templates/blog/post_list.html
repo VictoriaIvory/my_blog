@@ -93,7 +93,7 @@
                 {% if post.category %}
                   <a class="tag" href="{% url 'blog:list' %}?category={{ post.category.name|urlencode }}">{{ post.category.name }}</a>
                 {% endif %}
-                <time class="post-date" datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y-m-d" }}</time>
+                <time class="post-date" datetime="{{ post.pub_time|date:'c' }}">{{ post.pub_time|date:"Y-m-d" }}</time>
                 <span class="dot" aria-hidden="true">·</span>
                 <span class="read-time">约 {{ post.reading_time }} 分钟</span>
                 <span class="dot" aria-hidden="true">·</span>

@@ -23,7 +23,7 @@
           {% for post in group.posts %}
             <li class="archive-item">
               <a href="{% url 'blog:detail' post.pk %}">
-                <span class="archive-date">{{ post.created_at|date:"m-d" }}</span>
+                <span class="archive-date">{{ post.pub_time|date:"m-d" }}</span>
                 <span class="archive-title">{{ post.title }}</span>
               </a>
             </li>

@@ -5,8 +5,48 @@
 """
 
 from django.db import models
+from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.functional import cached_property
+
+# 文章状态的取值。放成常量，代码里就不用到处写裸字符串。
+STATUS_DRAFT = 'draft'
+STATUS_PUBLISHED = 'published'
+STATUS_CHOICES = [
+    (STATUS_DRAFT, '草稿'),
+    (STATUS_PUBLISHED, '已发布'),
+]
+
+
+def visible_condition(prefix=''):
+    """「前台可见」的查询条件：已发布 + 发布时间已到。
+
+    抽成函数是因为有两种用法：
+      1. Post.objects.visible()        —— 直接查文章（见 PostQuerySet.visible）
+      2. 跨关系过滤，比如统计标签下有
+         几篇可见文章、侧边栏最新评论
+         —— 这时要传 posts__ / post__ 前缀。
+
+    prefix 就是跨关系时的字段前缀（默认空字符串，表示当前模型）。
+    """
+    return Q(**{
+        f'{prefix}status': STATUS_PUBLISHED,
+        f'{prefix}pub_time__lte': timezone.now(),
+    })
+
+
+class PostQuerySet(models.QuerySet):
+    """文章查询集：把「前台可见」这个判定收在一处。
+
+    为什么不用模型方法而用查询集方法：查询集方法可以继续链式 filter，
+    所有前台查询（列表/搜索/分类/标签/归档/相关/Feed/Sitemap/评论）
+    都从 .visible() 起步，就不会有人漏写条件。
+    """
+
+    def visible(self):
+        """只留「已发布且发布时间已到」的文章（独立页面不过滤，由调用方再筛）。"""
+        return self.filter(visible_condition())
 
 
 class Category(models.Model):
@@ -49,6 +89,11 @@ class Tag(models.Model):
 class Post(models.Model):
     """一篇博客文章。"""
 
+    # 状态常量挂在模型上，模板/测试里写 Post.STATUS_DRAFT 比裸字符串清楚
+    STATUS_DRAFT = STATUS_DRAFT
+    STATUS_PUBLISHED = STATUS_PUBLISHED
+    STATUS_CHOICES = STATUS_CHOICES
+
     title = models.CharField('标题', max_length=100)
     body = models.TextField('正文')
     cover = models.ImageField(
@@ -72,7 +117,18 @@ class Post(models.Model):
         blank=True,
         related_name='posts',
     )
-    is_published = models.BooleanField('已发布', default=True)
+    status = models.CharField(
+        '状态',
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_PUBLISHED,
+        help_text='草稿不会出现在前台；已发布的文章还要等到「发布时间」才可见。',
+    )
+    pub_time = models.DateTimeField(
+        '发布时间',
+        default=timezone.now,
+        help_text='可以填将来的时间实现定时发布：到点后前台才会出现。',
+    )
     is_page = models.BooleanField(
         '独立页面',
         default=False,
@@ -83,10 +139,13 @@ class Post(models.Model):
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
 
+    # 用自定义查询集，Post.objects.visible() 才能用
+    objects = PostQuerySet.as_manager()
+
     class Meta:
         verbose_name = '文章'
         verbose_name_plural = '文章'
-        ordering = ['-created_at']  # 默认最新的在最前面
+        ordering = ['-pub_time']  # 默认按「发布时间」倒序，最新的在最前面
 
     def __str__(self):
         return self.title

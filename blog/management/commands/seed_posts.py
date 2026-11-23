@@ -14,7 +14,7 @@
 
 from django.core.management.base import BaseCommand
 
-from blog.models import BlogSettings, Category, Post, Tag
+from blog.models import STATUS_PUBLISHED, BlogSettings, Category, Post, Tag
 
 DEMO_CATEGORIES = ['Django', '踩坑记录', '生活']
 
@@ -67,7 +67,8 @@ class Command(BaseCommand):
                 defaults={
                     'body': body,
                     'is_page': True,
-                    'is_published': True,
+                    # 2026-11-23：is_published 拆成「状态 + 发布时间」，演示页面直接发布
+                    'status': STATUS_PUBLISHED,
                     'allow_comments': True,
                 },
             )

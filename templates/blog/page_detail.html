@@ -11,7 +11,7 @@
       <header class="post-header">
         <div class="post-kicker">
           <span class="tag">页面</span>
-          <time datetime="{{ post.created_at|date:'c' }}">{{ post.created_at|date:"Y 年 n 月 j 日" }}</time>
+          <time datetime="{{ post.pub_time|date:'c' }}">{{ post.pub_time|date:"Y 年 n 月 j 日" }}</time>
           <span class="dot" aria-hidden="true">·</span>
           <span>{{ post.views }} 次浏览</span>
           <a class="post-comment-link" href="#comments">{{ comment_count }} 条评论</a>

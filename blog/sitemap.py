@@ -24,14 +24,15 @@ def sitemap(request):
     for url in static_urls:
         lines.append(f'  <url><loc>{url}</loc><changefreq>weekly</changefreq></url>')
 
-    for post in Post.objects.filter(is_published=True, is_page=False).only('pk', 'updated_at'):
+    # 只提交前台可见的页面：草稿、定时未到点的都不进 sitemap
+    for post in Post.objects.visible().filter(is_page=False).only('pk', 'updated_at'):
         loc = request.build_absolute_uri(reverse('blog:detail', args=[post.pk]))
         lastmod = post.updated_at.date().isoformat()
         lines.append(
             f'  <url><loc>{loc}</loc><lastmod>{lastmod}</lastmod></url>'
         )
 
-    for page in Post.objects.filter(is_published=True, is_page=True).only('pk', 'updated_at'):
+    for page in Post.objects.visible().filter(is_page=True).only('pk', 'updated_at'):
         loc = request.build_absolute_uri(reverse('blog:page_detail', args=[page.pk]))
         lastmod = page.updated_at.date().isoformat()
         lines.append(

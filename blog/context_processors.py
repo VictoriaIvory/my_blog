@@ -8,9 +8,10 @@ def blog_context(request):
     """每个模板都能拿到 `site`（站点设置）和 `nav_pages`（导航页面）。"""
     try:
         site = BlogSettings.load()
+        # 导航里的独立页面也要遵守可见性：草稿 / 定时未到点的页面不能出现
         nav_pages = list(
-            Post.objects
-            .filter(is_published=True, is_page=True)
+            Post.objects.visible()
+            .filter(is_page=True)
             .only('id', 'title')[:10]
         )
     except (OperationalError, ProgrammingError):

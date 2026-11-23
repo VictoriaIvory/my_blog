@@ -7,6 +7,9 @@
    ========================================================================== */
 
 :root {
+  /* 告诉浏览器当前配色，原生控件（输入框、滚动条）也跟着变亮/变暗 */
+  color-scheme: light;
+
   --bg: #f7f4ee;
   --bg-soft: #efece5;
   --card: #fffdf9;
@@ -23,6 +26,47 @@
   --radius-sm: 12px;
   --shadow-sm: 0 1px 2px rgba(25, 29, 33, .04);
   --shadow-md: 0 18px 46px -20px rgba(25, 29, 33, .22);
+
+  /* ------------------------------------------------------------------
+     深色模式（2026-11-23）新增的语义变量：这里全部是「亮色」取值。
+     深色的取值统一放在文件末尾的 [data-theme="dark"] 与
+     @media (prefers-color-scheme: dark) 里覆盖，两处保持一致。
+     原来写死在规则里的颜色都换成了这些变量，这样深色只改变量不改规则。
+     ------------------------------------------------------------------ */
+  --brand-ink: #fff;                           /* 深绿实心按钮上的文字 */
+  --brand-tint: rgba(47, 111, 78, .08);        /* 导航/按钮 hover 的淡绿底 */
+  --brand-line: rgba(47, 111, 78, .3);         /* 淡绿描边 / 下划线 */
+  --brand-light: #7aa88c;                      /* 品牌色的浅色端（404 渐变） */
+  --focus-ring: rgba(47, 111, 78, .1);         /* 输入框聚焦光晕 */
+  --glow-1: rgba(47, 111, 78, .1);             /* 页面顶部光斑（绿） */
+  --glow-2: rgba(176, 122, 42, .08);           /* 页面顶部光斑（暖金） */
+  --selection-bg: rgba(47, 111, 78, .18);      /* 选中文字底色 */
+  --header-bg: rgba(247, 244, 238, .84);       /* 顶栏毛玻璃底色 */
+  --footer-bg: rgba(239, 236, 229, .55);       /* 页脚底色 */
+  --card-translucent: rgba(255, 253, 249, .6); /* 空状态卡片底 */
+  --chip-bg: #f6f2ea;                          /* 侧边栏小标签底 */
+  --dot: #c9c3b8;                              /* 元信息分隔点 */
+  --disabled: #b7bdc4;                         /* 分页禁用态文字 */
+  --quote-bg: #fbf7ef;                         /* 引用块底 */
+  --quote-line: #d9cbb3;                       /* 引用块左侧竖线 */
+  --code-bg: #f6f3ec;                          /* 代码块容器底 */
+  --code-line: #e5dfd2;                        /* 代码块边框 */
+  --inline-code-ink: #9a4a24;                  /* 行内代码文字（暖褐） */
+  --inline-code-bg: #f3efe6;                   /* 行内代码底 */
+  --inline-code-line: #e7e1d5;                 /* 行内代码边框 */
+  --th-bg: #f3efe6;                            /* 表头 / 关于页代码底 */
+  --input-bg: #fff;                            /* 表单输入框底色 */
+  --ok-line: #cfe0d6;                          /* 成功提示边框 */
+  --danger: #b3261e;                           /* 表单错误文字 */
+  --danger-ink: #8c1d18;                       /* 错误块标题文字 */
+  --danger-bg: #fdeceb;                        /* 错误块底 */
+  --danger-line: #f2c9c5;                      /* 错误块边框 */
+  --warn-ink: #8a5a00;                         /* 待审核徽标文字 */
+  --warn-bg: #fbf3e2;                          /* 警告块 / 徽标底 */
+  --warn-line: #ecdcb9;                        /* 警告块边框 */
+  --info-bg: #eef2f8;                          /* 信息提示底 */
+  --info-line: #cfd9e8;                        /* 信息提示边框 */
+
   --font-sans: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, sans-serif;
   --font-mono: Consolas, "Cascadia Code", "Courier New", monospace;
   --wrap: 900px;
@@ -50,8 +94,8 @@ body {
   line-height: 1.7;
   color: var(--ink);
   background:
-    radial-gradient(900px 420px at 18% -140px, rgba(47, 111, 78, .10), transparent 62%),
-    radial-gradient(760px 380px at 88% -120px, rgba(176, 122, 42, .08), transparent 60%),
+    radial-gradient(900px 420px at 18% -140px, var(--glow-1), transparent 62%),
+    radial-gradient(760px 380px at 88% -120px, var(--glow-2), transparent 60%),
     var(--bg);
   -webkit-font-smoothing: antialiased;
 }
@@ -60,7 +104,7 @@ img { max-width: 100%; }
 
 a { color: var(--brand); }
 
-::selection { background: rgba(47, 111, 78, .18); }
+::selection { background: var(--selection-bg); }
 
 .wrap {
   width: 100%;
@@ -81,7 +125,7 @@ main.wrap {
   top: 0;
   z-index: 20;
   border-bottom: 1px solid var(--line);
-  background: rgba(247, 244, 238, .84);
+  background: var(--header-bg);
   backdrop-filter: blur(14px);
 }
 
@@ -134,7 +178,7 @@ main.wrap {
 
 .site-nav a:hover {
   color: var(--brand);
-  background: rgba(47, 111, 78, .08);
+  background: var(--brand-tint);
 }
 
 .site-nav a.active {
@@ -223,7 +267,7 @@ main.wrap {
 
 .search:focus-within {
   border-color: var(--brand);
-  box-shadow: 0 0 0 4px rgba(47, 111, 78, .10);
+  box-shadow: 0 0 0 4px var(--focus-ring);
 }
 
 .search-icon { color: var(--muted); flex: 0 0 auto; }
@@ -245,7 +289,7 @@ main.wrap {
   border: 0;
   border-radius: 10px;
   background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -277,7 +321,7 @@ main.wrap {
 .category-nav a.active {
   background: var(--brand);
   border-color: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   font-weight: 600;
 }
 
@@ -319,7 +363,7 @@ main.wrap {
   margin-left: 8px;
   color: var(--brand);
   text-decoration: none;
-  border-bottom: 1px solid rgba(47, 111, 78, .3);
+  border-bottom: 1px solid var(--brand-line);
 }
 
 /* ---------- 文章卡片 ---------- */
@@ -415,9 +459,9 @@ main.wrap {
   transition: background .15s ease, color .15s ease;
 }
 
-.tag:hover { background: var(--brand); color: #fff; }
+.tag:hover { background: var(--brand); color: var(--brand-ink); }
 
-.dot { color: #c9c3b8; }
+.dot { color: var(--dot); }
 
 .post-card-title {
   margin: 0 0 10px;
@@ -478,7 +522,7 @@ main.wrap {
 
 .pager-step:hover { border-color: var(--brand); color: var(--brand); }
 
-.pager-step.disabled { color: #b7bdc4; background: transparent; }
+.pager-step.disabled { color: var(--disabled); background: transparent; }
 
 .pager-pages {
   display: flex;
@@ -506,7 +550,7 @@ main.wrap {
 
 .pager-pages .current {
   background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   font-weight: 600;
 }
 
@@ -516,7 +560,7 @@ main.wrap {
 .empty {
   padding: 72px 20px;
   text-align: center;
-  background: rgba(255, 253, 249, .6);
+  background: var(--card-translucent);
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius);
 }
@@ -589,7 +633,7 @@ main.wrap {
   font-size: 17px;
   line-height: 1.95;
   letter-spacing: .01em;
-  color: #24292e;
+  color: var(--ink);
 }
 
 .post-body p { margin: 0 0 22px; }
@@ -621,8 +665,8 @@ main.wrap {
 .post-body blockquote {
   margin: 0 0 24px;
   padding: 16px 22px;
-  background: #fbf7ef;
-  border-left: 4px solid #d9cbb3;
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-line);
   border-radius: 0 12px 12px 0;
   color: var(--ink-2);
 }
@@ -632,7 +676,7 @@ main.wrap {
 .post-body a {
   color: var(--brand);
   text-decoration: underline;
-  text-decoration-color: rgba(47, 111, 78, .35);
+  text-decoration-color: var(--brand-line);
   text-underline-offset: 3px;
 }
 
@@ -656,9 +700,9 @@ main.wrap {
   padding: 2px 7px;
   font-family: var(--font-mono);
   font-size: .88em;
-  color: #9a4a24;
-  background: #f3efe6;
-  border: 1px solid #e7e1d5;
+  color: var(--inline-code-ink);
+  background: var(--inline-code-bg);
+  border: 1px solid var(--inline-code-line);
   border-radius: 6px;
 }
 
@@ -667,8 +711,8 @@ main.wrap {
 .post-body .codehilite {
   margin: 0 0 24px;
   padding: 18px 20px;
-  background: #f6f3ec;
-  border: 1px solid #e5dfd2;
+  background: var(--code-bg);
+  border: 1px solid var(--code-line);
   border-radius: 14px;
   overflow-x: auto;
   font-size: 14.5px;
@@ -713,7 +757,7 @@ main.wrap {
 }
 
 .post-body th {
-  background: #f3efe6;
+  background: var(--th-bg);
   font-weight: 700;
   font-size: 13.5px;
   letter-spacing: .02em;
@@ -1060,7 +1104,7 @@ main.wrap {
   padding: 1px 5px;
   font-family: var(--font-mono);
   font-size: .9em;
-  background: #f3efe6;
+  background: var(--th-bg);
   border: 1px solid var(--line);
   border-radius: 4px;
 }
@@ -1077,7 +1121,7 @@ main.wrap {
   font-weight: 800;
   line-height: 1;
   letter-spacing: -.04em;
-  background: linear-gradient(135deg, var(--brand), #7aa88c);
+  background: linear-gradient(135deg, var(--brand), var(--brand-light));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1104,7 +1148,7 @@ main.wrap {
 .btn-primary {
   padding: 11px 22px;
   background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
@@ -1129,7 +1173,7 @@ main.wrap {
 .site-footer {
   margin-top: 96px;
   border-top: 1px solid var(--line);
-  background: rgba(239, 236, 229, .55);
+  background: var(--footer-bg);
 }
 
 .footer-inner {
@@ -1152,7 +1196,7 @@ main.wrap {
 
 .footer-links a:hover { color: var(--brand); }
 
-.footer-copy { margin: 0; font-size: 12.5px; color: #a3a9b0; }
+.footer-copy { margin: 0; font-size: 12.5px; color: var(--muted); }
 
 /* ---------- 提示消息（messages） ---------- */
 .messages { margin-top: 16px; }
@@ -1163,13 +1207,13 @@ main.wrap {
   font-size: 14px;
   color: var(--ink);
   background: var(--brand-soft);
-  border: 1px solid #cfe0d6;
+  border: 1px solid var(--ok-line);
   border-radius: var(--radius-sm);
 }
 
-.message.error { background: #fdeceb; border-color: #f2c9c5; }
-.message.warning { background: #fbf3e2; border-color: #ecdcb9; }
-.message.info { background: #eef2f8; border-color: #cfd9e8; }
+.message.error { background: var(--danger-bg); border-color: var(--danger-line); }
+.message.warning { background: var(--warn-bg); border-color: var(--warn-line); }
+.message.info { background: var(--info-bg); border-color: var(--info-line); }
 
 /* ---------- 登录 / 注册 / 个人中心 ---------- */
 .nav-user { font-weight: 600; }
@@ -1187,7 +1231,7 @@ main.wrap {
   cursor: pointer;
 }
 
-.nav-logout button:hover { color: var(--brand); background: rgba(47, 111, 78, .08); }
+.nav-logout button:hover { color: var(--brand); background: var(--brand-tint); }
 
 .form-page {
   display: flex;
@@ -1219,25 +1263,25 @@ main.wrap {
   font-family: inherit;
   font-size: 15px;
   color: var(--ink);
-  background: #fff;
+  background: var(--input-bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   outline: none;
 }
 
-.form-input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(47, 111, 78, .10); }
+.form-input:focus { border-color: var(--brand); box-shadow: 0 0 0 4px var(--focus-ring); }
 
 .form-help { color: var(--muted); font-size: 12px; line-height: 1.6; }
 
-.form-error { color: #b3261e; font-size: 12.5px; }
+.form-error { color: var(--danger); font-size: 12.5px; }
 
 .form-errors {
   padding: 10px 14px;
   margin-bottom: 16px;
   font-size: 13.5px;
-  color: #8c1d18;
-  background: #fdeceb;
-  border: 1px solid #f2c9c5;
+  color: var(--danger-ink);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-line);
   border-radius: var(--radius-sm);
 }
 
@@ -1269,8 +1313,8 @@ main.wrap {
   margin-left: 6px;
   padding: 1px 8px;
   font-size: 11px;
-  color: #8a5a00;
-  background: #fbf3e2;
+  color: var(--warn-ink);
+  background: var(--warn-bg);
   border-radius: 999px;
 }
 
@@ -1338,7 +1382,7 @@ main.wrap {
   font-size: 12px;
   color: var(--ink-2);
   text-decoration: none;
-  background: #f6f2ea;
+  background: var(--chip-bg);
   border: 1px solid var(--line);
   border-radius: 999px;
 }
@@ -1455,14 +1499,14 @@ main.wrap {
   font-size: 14.5px;
   line-height: 1.7;
   color: var(--ink);
-  background: #fff;
+  background: var(--input-bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   resize: vertical;
   outline: none;
 }
 
-.comment-form textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px rgba(47, 111, 78, .10); }
+.comment-form textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px var(--focus-ring); }
 
 .comment-form-actions {
   display: flex;
@@ -1556,4 +1600,256 @@ main.wrap {
   .related-grid { grid-template-columns: 1fr; }
   .archive-date { flex-basis: 38px; }
   .about-stats { gap: 22px; }
+}
+
+/* ==========================================================================
+   深色模式（2026-11-23 · 复现 DjangoBlog 第二批）
+   --------------------------------------------------------------------------
+   参考：frontend/src/features/darkMode.js、templates/share_layout/base.html、
+        frontend/src/styles/main.css
+   两种触发方式：
+     1. 显式切换：<html data-theme="dark">（内联脚本 + theme.js 写入，
+        localStorage 键 dark-mode-enabled 记住选择）
+     2. 跟随系统：@media (prefers-color-scheme: dark)，且用户没有显式选亮色
+        —— 选择器写成 :root:not([data-theme="light"])，
+        所以「显式亮色」能压过系统深色。
+   配色方向：深墨绿 / 暖深灰底 + 暖白文字 + 深绿 & 暖金点缀，
+   延续亮色「暖纸色 + 深绿」的气质，而不是纯黑纯白。
+   ⚠ 下面两段深色变量内容完全一致（CSS 没法把 @media 和选择器合成一条），
+     改配色时两处一起改。
+   ========================================================================== */
+
+/* ---------- 顶栏「深色 / 浅色」切换按钮 ---------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin-left: 4px;
+  padding: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.theme-toggle:hover {
+  color: var(--brand);
+  background: var(--brand-tint);
+  border-color: var(--brand);
+}
+
+.theme-toggle svg { display: block; width: 17px; height: 17px; }
+
+/* 亮色显示月亮（点击进深色），深色显示太阳（点击回亮色）。
+   状态只看 <html data-theme>，和内联脚本 / theme.js 用同一套判断。 */
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  /* 没跑 JS（或属性还没设）时，也按系统显示正确图标 */
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+}
+
+/* 占位文字统一用 --muted，深色下不会变成灰底灰字 */
+.search input::placeholder,
+.form-input::placeholder,
+.comment-form textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* ---------- 深色配色 · 显式切换（data-theme="dark"） ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;             /* 原生控件 / 滚动条跟着变暗 */
+
+  --bg: #131715;                  /* 深墨绿黑，比纯黑柔和 */
+  --bg-soft: #191f1c;
+  --card: #1d2420;
+  --ink: #e9e5da;                 /* 暖白，接近纸色的浅色端 */
+  --ink-2: #c3c7bf;
+  --muted: #9aa39b;
+  --line: #2c352f;
+  --line-strong: #3b453e;
+  --brand: #74c39b;               /* 提亮的深绿，保证链接/强调色对比度 */
+  --brand-dark: #5fae86;
+  --brand-soft: #22332a;
+  --accent: #d9a95e;              /* 暖金 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-md: 0 22px 50px -24px rgba(0, 0, 0, .8);
+
+  --brand-ink: #0b1510;           /* 浅绿实心按钮上用深色字 */
+  --brand-tint: rgba(116, 195, 155, .14);
+  --brand-line: rgba(116, 195, 155, .42);
+  --brand-light: #a8d8bf;
+  --focus-ring: rgba(116, 195, 155, .22);
+  --glow-1: rgba(116, 195, 155, .08);
+  --glow-2: rgba(217, 169, 94, .06);
+  --selection-bg: rgba(116, 195, 155, .3);
+  --header-bg: rgba(19, 23, 21, .86);
+  --footer-bg: rgba(25, 31, 28, .55);
+  --card-translucent: rgba(29, 36, 32, .55);
+  --chip-bg: #232a26;
+  --dot: #4b554d;
+  --disabled: #6f7a72;
+  --quote-bg: #202a24;
+  --quote-line: #3d4a40;
+  --code-bg: #171d1a;
+  --code-line: #2e3833;
+  --inline-code-ink: #f0b47a;
+  --inline-code-bg: #2a241d;
+  --inline-code-line: #3d352b;
+  --th-bg: #232b26;
+  --input-bg: #171e1a;
+  --ok-line: #2f4a3a;
+  --danger: #ff9e94;
+  --danger-ink: #ffb4ab;
+  --danger-bg: #3a1f1d;
+  --danger-line: #5c2f2b;
+  --warn-ink: #f0c674;
+  --warn-bg: #352b18;
+  --warn-line: #554326;
+  --info-bg: #1d2733;
+  --info-line: #2f3f52;
+}
+
+/* ---------- 深色配色 · 跟随系统（未显式选亮色时） ----------
+   内容与上面 [data-theme="dark"] 完全一致，改配色两处一起改。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #131715;
+    --bg-soft: #191f1c;
+    --card: #1d2420;
+    --ink: #e9e5da;
+    --ink-2: #c3c7bf;
+    --muted: #9aa39b;
+    --line: #2c352f;
+    --line-strong: #3b453e;
+    --brand: #74c39b;
+    --brand-dark: #5fae86;
+    --brand-soft: #22332a;
+    --accent: #d9a95e;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-md: 0 22px 50px -24px rgba(0, 0, 0, .8);
+
+    --brand-ink: #0b1510;
+    --brand-tint: rgba(116, 195, 155, .14);
+    --brand-line: rgba(116, 195, 155, .42);
+    --brand-light: #a8d8bf;
+    --focus-ring: rgba(116, 195, 155, .22);
+    --glow-1: rgba(116, 195, 155, .08);
+    --glow-2: rgba(217, 169, 94, .06);
+    --selection-bg: rgba(116, 195, 155, .3);
+    --header-bg: rgba(19, 23, 21, .86);
+    --footer-bg: rgba(25, 31, 28, .55);
+    --card-translucent: rgba(29, 36, 32, .55);
+    --chip-bg: #232a26;
+    --dot: #4b554d;
+    --disabled: #6f7a72;
+    --quote-bg: #202a24;
+    --quote-line: #3d4a40;
+    --code-bg: #171d1a;
+    --code-line: #2e3833;
+    --inline-code-ink: #f0b47a;
+    --inline-code-bg: #2a241d;
+    --inline-code-line: #3d352b;
+    --th-bg: #232b26;
+    --input-bg: #171e1a;
+    --ok-line: #2f4a3a;
+    --danger: #ff9e94;
+    --danger-ink: #ffb4ab;
+    --danger-bg: #3a1f1d;
+    --danger-line: #5c2f2b;
+    --warn-ink: #f0c674;
+    --warn-bg: #352b18;
+    --warn-line: #554326;
+    --info-bg: #1d2733;
+    --info-line: #2f3f52;
+  }
+}
+
+/* ==========================================================================
+   代码高亮：深色 token 覆盖
+   pygments.css 是浅色主题，故意不改它（不影响亮色模式）。
+   这里用优先级更高的选择器覆盖主要 token，取值参考 VS Code Dark+：
+   注释绿 #6a9955、字符串橙 #ce9178、关键字蓝 #569cd6、函数黄 #dcdcaa、
+   数字浅绿 #b5cea8、变量浅蓝 #9cdcfe、错误 #f48771。
+   ========================================================================== */
+
+/* 容器：深色下换成深底细边（亮色仍走变量里的暖纸色） */
+[data-theme="dark"] .post-body :is(.codehilite, .highlight) {
+  background: var(--code-bg);
+  border-color: var(--code-line);
+}
+
+/* 注释 / 文档字符串 */
+[data-theme="dark"] .codehilite :is(.c, .ch, .cm, .cpf, .c1, .cs, .sd) { color: #6a9955; }
+/* 控制流关键字、预处理指令 */
+[data-theme="dark"] .codehilite :is(.k, .kn, .cp) { color: #c586c0; }
+/* 关键字常量 / 声明 / 保留字 / 运算符词 / 标签 */
+[data-theme="dark"] .codehilite :is(.kc, .kd, .kp, .kr, .ow, .nt) { color: #569cd6; }
+/* 类型、类、命名空间、异常、内置常量、章节标题 */
+[data-theme="dark"] .codehilite :is(.kt, .nc, .nn, .ne, .no, .ni, .gh, .gu) { color: #4ec9b0; }
+/* 普通字符串 */
+[data-theme="dark"] .codehilite :is(.s, .sa, .sb, .sc, .dl, .s2, .sh, .sx, .s1, .ss) { color: #ce9178; }
+/* 字符串转义 / 插值 */
+[data-theme="dark"] .codehilite :is(.se, .si) { color: #d7ba7d; }
+/* 正则字符串 */
+[data-theme="dark"] .codehilite :is(.sr) { color: #d16969; }
+/* 数字 */
+[data-theme="dark"] .codehilite :is(.m, .mb, .mf, .mh, .mi, .mo, .il) { color: #b5cea8; }
+/* 函数 / 内置名 / 装饰器 */
+[data-theme="dark"] .codehilite :is(.nf, .nb, .nd, .fm, .bp) { color: #dcdcaa; }
+/* 名称 / 属性 / 变量 */
+[data-theme="dark"] .codehilite :is(.na, .nl, .nv, .vc, .vg, .vi, .vm) { color: #9cdcfe; }
+/* 运算符 / 标点 / 普通名称 / 空白 */
+[data-theme="dark"] .codehilite :is(.o, .n, .p, .w) { color: #d4d4d4; }
+/* 错误 / 删除行 / 回溯 */
+[data-theme="dark"] .codehilite :is(.err, .gd, .gr, .gt) { color: #f48771; }
+/* 新增行 */
+[data-theme="dark"] .codehilite :is(.gi) { color: #b5cea8; }
+/* 输出 / 提示符 */
+[data-theme="dark"] .codehilite :is(.go, .gp) { color: #8b948c; }
+/* 高亮行底色 */
+[data-theme="dark"] .codehilite .hll { background-color: #2f3a34; }
+
+/* ---------- 代码高亮：跟随系统深色（与上面一一对应） ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .post-body :is(.codehilite, .highlight) {
+    background: var(--code-bg);
+    border-color: var(--code-line);
+  }
+
+  :root:not([data-theme="light"]) .codehilite :is(.c, .ch, .cm, .cpf, .c1, .cs, .sd) { color: #6a9955; }
+  :root:not([data-theme="light"]) .codehilite :is(.k, .kn, .cp) { color: #c586c0; }
+  :root:not([data-theme="light"]) .codehilite :is(.kc, .kd, .kp, .kr, .ow, .nt) { color: #569cd6; }
+  :root:not([data-theme="light"]) .codehilite :is(.kt, .nc, .nn, .ne, .no, .ni, .gh, .gu) { color: #4ec9b0; }
+  :root:not([data-theme="light"]) .codehilite :is(.s, .sa, .sb, .sc, .dl, .s2, .sh, .sx, .s1, .ss) { color: #ce9178; }
+  :root:not([data-theme="light"]) .codehilite :is(.se, .si) { color: #d7ba7d; }
+  :root:not([data-theme="light"]) .codehilite :is(.sr) { color: #d16969; }
+  :root:not([data-theme="light"]) .codehilite :is(.m, .mb, .mf, .mh, .mi, .mo, .il) { color: #b5cea8; }
+  :root:not([data-theme="light"]) .codehilite :is(.nf, .nb, .nd, .fm, .bp) { color: #dcdcaa; }
+  :root:not([data-theme="light"]) .codehilite :is(.na, .nl, .nv, .vc, .vg, .vi, .vm) { color: #9cdcfe; }
+  :root:not([data-theme="light"]) .codehilite :is(.o, .n, .p, .w) { color: #d4d4d4; }
+  :root:not([data-theme="light"]) .codehilite :is(.err, .gd, .gr, .gt) { color: #f48771; }
+  :root:not([data-theme="light"]) .codehilite :is(.gi) { color: #b5cea8; }
+  :root:not([data-theme="light"]) .codehilite :is(.go, .gp) { color: #8b948c; }
+  :root:not([data-theme="light"]) .codehilite .hll { background-color: #2f3a34; }
+}
+
+/* ---------- 窄屏：切换按钮收紧一点，避免挤压导航 ---------- */
+@media (max-width: 760px) {
+  .theme-toggle { width: 32px; height: 32px; margin-left: 2px; }
+  .theme-toggle svg { width: 16px; height: 16px; }
 }

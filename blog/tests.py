@@ -16,13 +16,14 @@ from django.utils import timezone
 from comments.models import Comment
 
 from .models import BlogSettings, Category, Post, Tag
+from .templatetags.blog_extras import sidebar
 
 
 class PostListTests(TestCase):
     def test_list_shows_only_published(self):
         """首页只显示已发布的文章。"""
-        Post.objects.create(title='公开的文章', body='正文', is_published=True)
-        Post.objects.create(title='草稿文章', body='正文', is_published=False)
+        Post.objects.create(title='公开的文章', body='正文', status=Post.STATUS_PUBLISHED)
+        Post.objects.create(title='草稿文章', body='正文', status=Post.STATUS_DRAFT)
 
         response = self.client.get(reverse('blog:list'))
 
@@ -31,11 +32,12 @@ class PostListTests(TestCase):
         self.assertNotContains(response, '草稿文章')
 
     def test_list_orders_newest_first(self):
-        """首页按创建时间倒序。"""
+        """首页按发布时间倒序。"""
         old = Post.objects.create(title='早的文章', body='x')
         new = Post.objects.create(title='晚的文章', body='x')
-        # 手动改时间，模拟先后
-        Post.objects.filter(pk=old.pk).update(created_at=timezone.now() - timezone.timedelta(days=1))
+        # 手动改发布时间，模拟先后
+        Post.objects.filter(pk=old.pk).update(
+            pub_time=timezone.now() - timezone.timedelta(days=1))
 
         response = self.client.get(reverse('blog:list'))
         titles = [p.title for p in response.context['posts']]
@@ -71,7 +73,7 @@ class CategoryFilterTests(TestCase):
     def test_filter_ignores_drafts(self):
         """分类筛选同样不能漏出草稿。"""
         Post.objects.create(title='Django 草稿', body='x',
-                            category=self.django, is_published=False)
+                            category=self.django, status=Post.STATUS_DRAFT)
 
         response = self.client.get(reverse('blog:list'), {'category': 'Django'})
 
@@ -127,7 +129,7 @@ class SearchTests(TestCase):
         self.assertContains(response, '分页')
 
     def test_search_hides_drafts(self):
-        Post.objects.create(title='饼图草稿', body='x', is_published=False)
+        Post.objects.create(title='饼图草稿', body='x', status=Post.STATUS_DRAFT)
 
         response = self.client.get(reverse('blog:list'), {'q': '饼图'})
 
@@ -218,7 +220,7 @@ class PostDetailTests(TestCase):
 
     def test_detail_returns_404_for_draft(self):
         """草稿直接 404，不能靠改 URL 看到。"""
-        post = Post.objects.create(title='草稿', body='不该看到', is_published=False)
+        post = Post.objects.create(title='草稿', body='不该看到', status=Post.STATUS_DRAFT)
         response = self.client.get(reverse('blog:detail', args=(post.pk,)))
 
         self.assertEqual(response.status_code, 404)
@@ -272,10 +274,15 @@ class MarkdownRenderTests(TestCase):
         self.assertIn('<th>名称</th>', html)
 
     def test_script_tag_is_stripped(self):
-        """正文里混进 <script> 不会被执行，也不会出现在页面源码里。"""
+        """正文里混进 <script> 不会被执行，也不会出现在页面源码里。
+
+        只看正文区域：base.html 里有深色模式的防闪烁内联脚本，
+        整页断言 <script 会误伤（2026-11-23 加深色模式后调整口径）。
+        """
         html = self._detail_html('正常文字 <script>alert("xss")</script> 结束')
-        self.assertNotIn('<script', html)
-        self.assertIn('正常文字', html)
+        body = html.split('<div class="post-body">')[1].split('</div>')[0]
+        self.assertNotIn('<script', body)
+        self.assertIn('正常文字', body)
 
     def test_img_onerror_is_stripped(self):
         html = self._detail_html('<img src="x" onerror="alert(1)">')
@@ -298,7 +305,7 @@ class MarkdownRenderTests(TestCase):
 
     def test_draft_body_not_rendered_to_public(self):
         """草稿即使写了 Markdown 也不该出现在前台。"""
-        Post.objects.create(title='草稿', body='**秘密**', is_published=False)
+        Post.objects.create(title='草稿', body='**秘密**', status=Post.STATUS_DRAFT)
         response = self.client.get(reverse('blog:list'))
         self.assertNotContains(response, '秘密')
 
@@ -853,7 +860,8 @@ class PageTests(TestCase):
 
     def setUp(self):
         self.page = Post.objects.create(
-            title='留言板', body='这里可以留言。', is_page=True, is_published=True)
+            title='留言板', body='这里可以留言。', is_page=True,
+            status=Post.STATUS_PUBLISHED)
         self.post = Post.objects.create(title='普通文章', body='x')
 
     def test_page_detail_renders(self):
@@ -895,7 +903,7 @@ class PageTests(TestCase):
 
     def test_draft_page_404(self):
         draft = Post.objects.create(
-            title='草稿页面', body='x', is_page=True, is_published=False)
+            title='草稿页面', body='x', is_page=True, status=Post.STATUS_DRAFT)
 
         response = self.client.get(reverse('blog:page_detail', args=[draft.pk]))
 
@@ -955,3 +963,274 @@ class SiteSettingsTests(TestCase):
         site.save()
 
         self.assertFalse(BlogSettings.load().comment_need_review)
+
+
+class VisibleQuerysetTests(TestCase):
+    """2026-11-23：统一的「前台可见」查询集（草稿 + 定时发布的核心）。"""
+
+    def test_visible_filters_status_and_time(self):
+        published = Post.objects.create(title='可见文章', body='x')
+        Post.objects.create(title='草稿', body='x', status=Post.STATUS_DRAFT)
+        Post.objects.create(
+            title='定时未到', body='x',
+            pub_time=timezone.now() + timezone.timedelta(hours=1))
+        old = Post.objects.create(title='时间已到', body='x')
+        Post.objects.filter(pk=old.pk).update(
+            pub_time=timezone.now() - timezone.timedelta(hours=1))
+
+        titles = set(Post.objects.visible().values_list('title', flat=True))
+
+        self.assertEqual(titles, {'可见文章', '时间已到'})
+        self.assertIn(published.title, titles)
+
+
+class DraftAndScheduledPublishTests(TestCase):
+    """2026-11-23：草稿 + 定时发布（复现 DjangoBlog 第二批-1）。
+
+    时间模拟统一用 Post.objects.filter(pk=...).update(pub_time=...)，
+    不引 freezegun 这类新依赖。
+    """
+
+    def setUp(self):
+        self.category = Category.objects.create(name='Django')
+        self.tag = Tag.objects.create(name='定时发布')
+        self.user = User.objects.create_user('draftreader', password='pass12345')
+
+    def _draft(self, title='草稿文章', **kwargs):
+        kwargs.setdefault('body', 'x')
+        return Post.objects.create(
+            title=title, status=Post.STATUS_DRAFT, **kwargs)
+
+    def _scheduled(self, title='定时文章', **kwargs):
+        kwargs.setdefault('body', 'x')
+        return Post.objects.create(
+            title=title,
+            pub_time=timezone.now() + timezone.timedelta(days=1),
+            **kwargs)
+
+    def _make_due(self, post):
+        """把发布时间改到过去，模拟「到点了」。"""
+        Post.objects.filter(pk=post.pk).update(
+            pub_time=timezone.now() - timezone.timedelta(minutes=1))
+        post.refresh_from_db(fields=['pub_time'])
+
+    def _list_titles(self):
+        response = self.client.get(reverse('blog:list'))
+        return [p.title for p in response.context['posts']]
+
+    # ---------- 草稿：各个前台入口都不能漏 ----------
+
+    def test_draft_not_in_list(self):
+        Post.objects.create(title='正常文章', body='x')
+        self._draft()
+
+        self.assertEqual(self._list_titles(), ['正常文章'])
+
+    def test_draft_not_in_search(self):
+        self._draft(title='饼图草稿')
+
+        response = self.client.get(reverse('blog:list'), {'q': '饼图'})
+
+        self.assertEqual(response.context['total_count'], 0)
+
+    def test_draft_not_in_category_filter(self):
+        self._draft(category=self.category)
+
+        response = self.client.get(reverse('blog:list'), {'category': 'Django'})
+
+        self.assertEqual(response.context['total_count'], 0)
+
+    def test_draft_not_in_tag_filter_or_tag_cloud(self):
+        draft = self._draft()
+        draft.tags.add(self.tag)
+
+        filtered = self.client.get(reverse('blog:list'), {'tag': '定时发布'})
+        self.assertEqual(filtered.context['total_count'], 0)
+
+        # 标签云只显示有可见文章的标签：只挂草稿的标签不该出现
+        cloud_names = [t.name for t in sidebar()['tags']]
+        self.assertNotIn('定时发布', cloud_names)
+
+    def test_draft_not_in_archive(self):
+        self._draft(title='归档不该有草稿')
+
+        response = self.client.get(reverse('blog:archive'))
+
+        titles = [p.title for g in response.context['groups'] for p in g['posts']]
+        self.assertNotIn('归档不该有草稿', titles)
+
+    def test_draft_not_in_related_posts(self):
+        main = Post.objects.create(title='主文章', body='x')
+        main.tags.add(self.tag)
+        draft = self._draft(title='同标签草稿')
+        draft.tags.add(self.tag)
+
+        response = self.client.get(reverse('blog:detail', args=[main.pk]))
+
+        related_titles = [p.title for p in response.context['related_posts']]
+        self.assertNotIn('同标签草稿', related_titles)
+
+    def test_draft_not_in_sidebar(self):
+        Post.objects.create(title='正常文章', body='x')
+        self._draft(title='侧边栏草稿')
+
+        data = sidebar()
+
+        self.assertNotIn('侧边栏草稿', [p.title for p in data['latest_posts']])
+        self.assertNotIn('侧边栏草稿', [p.title for p in data['popular_posts']])
+
+    def test_draft_not_in_rss_or_sitemap(self):
+        draft = self._draft(title='订阅里的草稿')
+
+        feed = self.client.get(reverse('blog:feed'))
+        sitemap = self.client.get(reverse('blog:sitemap'))
+
+        self.assertNotContains(feed, '订阅里的草稿')
+        self.assertNotContains(sitemap, reverse('blog:detail', args=[draft.pk]))
+
+    def test_draft_detail_404(self):
+        draft = self._draft()
+
+        response = self.client.get(reverse('blog:detail', args=[draft.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_cannot_comment_on_draft(self):
+        draft = self._draft()
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('comments:post_comment', args=[draft.pk]), {'body': '能评论吗'})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    # ---------- 定时发布：未到点隐藏，到点出现 ----------
+
+    def test_scheduled_not_in_list(self):
+        Post.objects.create(title='正常文章', body='x')
+        self._scheduled(title='明天才发')
+
+        self.assertEqual(self._list_titles(), ['正常文章'])
+
+    def test_scheduled_detail_404_before_pub_time(self):
+        scheduled = self._scheduled()
+
+        response = self.client.get(reverse('blog:detail', args=[scheduled.pk]))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_scheduled_not_in_rss_or_sitemap(self):
+        scheduled = self._scheduled(title='明天的 RSS 文章')
+
+        feed = self.client.get(reverse('blog:feed'))
+        sitemap = self.client.get(reverse('blog:sitemap'))
+
+        self.assertNotContains(feed, '明天的 RSS 文章')
+        self.assertNotContains(
+            sitemap, reverse('blog:detail', args=[scheduled.pk]))
+
+    def test_scheduled_visible_after_pub_time(self):
+        scheduled = self._scheduled(title='到点后的文章')
+        self.assertEqual(self._list_titles(), [])
+
+        self._make_due(scheduled)
+
+        self.assertIn('到点后的文章', self._list_titles())
+        detail = self.client.get(reverse('blog:detail', args=[scheduled.pk]))
+        self.assertEqual(detail.status_code, 200)
+
+    def test_pub_time_equal_now_is_visible(self):
+        """边界：pub_time <= now 才算可见，恰好等于当前时刻要能看见。"""
+        now = timezone.now()
+        post = Post.objects.create(title='准点发布', body='x', pub_time=now)
+
+        self.assertIn('准点发布', self._list_titles())
+        self.assertEqual(
+            self.client.get(reverse('blog:detail', args=[post.pk])).status_code, 200)
+
+    def test_cannot_comment_before_pub_time(self):
+        scheduled = self._scheduled()
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse('comments:post_comment', args=[scheduled.pk]), {'body': '提前评论'})
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Comment.objects.count(), 0)
+
+    # ---------- 独立页面同样遵守 ----------
+
+    def test_draft_page_404_and_not_in_nav(self):
+        draft_page = self._draft(title='草稿页面', is_page=True)
+
+        self.assertEqual(
+            self.client.get(reverse('blog:page_detail', args=[draft_page.pk])).status_code,
+            404)
+        nav_titles = [p.title for p in self.client.get(reverse('blog:list')).context['nav_pages']]
+        self.assertNotIn('草稿页面', nav_titles)
+
+    def test_scheduled_page_hidden_until_pub_time(self):
+        page = self._scheduled(title='定时页面', is_page=True)
+
+        self.assertEqual(
+            self.client.get(reverse('blog:page_detail', args=[page.pk])).status_code, 404)
+        nav_titles = [p.title for p in self.client.get(reverse('blog:list')).context['nav_pages']]
+        self.assertNotIn('定时页面', nav_titles)
+
+        self._make_due(page)
+
+        self.assertEqual(
+            self.client.get(reverse('blog:page_detail', args=[page.pk])).status_code, 200)
+
+    # ---------- 统计口径 / 上下篇 ----------
+
+    def test_home_and_about_counts_exclude_drafts_and_scheduled(self):
+        Post.objects.create(title='可见文章', body='x', views=10)
+        page = Post.objects.create(title='可见页面', body='x', is_page=True, views=50)
+        self._draft(title='草稿', views=100)
+        self._scheduled(title='定时文章', views=100)
+
+        home = self.client.get(reverse('blog:list'))
+        self.assertEqual(home.context['published_count'], 1)   # 独立页面不算「文章」
+        self.assertEqual(home.context['total_views'], 10)
+
+        about = self.client.get(reverse('blog:about'))
+        self.assertEqual(about.context['published_count'], 1)
+        self.assertIsNotNone(page.pk)
+
+    def test_prev_next_skip_draft_and_scheduled(self):
+        first = Post.objects.create(title='第一篇', body='x')
+        self._draft(title='中间草稿')
+        self._scheduled(title='中间定时')
+        last = Post.objects.create(title='最后一篇', body='x')
+
+        detail = self.client.get(reverse('blog:detail', args=[first.pk]))
+        self.assertEqual(detail.context['next_post'].pk, last.pk)
+
+        detail = self.client.get(reverse('blog:detail', args=[last.pk]))
+        self.assertEqual(detail.context['prev_post'].pk, first.pk)
+
+    # ---------- 后台 ----------
+
+    def test_admin_can_edit_draft_and_action_publishes(self):
+        admin_user = User.objects.create_superuser(
+            'postadmin', 'postadmin@example.com', 'pass12345')
+        self.client.force_login(admin_user)
+        draft = self._draft(title='后台草稿')
+        changelist = reverse('admin:blog_post_changelist')
+
+        # 管理员能打开草稿的编辑页
+        edit_page = self.client.get(
+            reverse('admin:blog_post_change', args=[draft.pk]))
+        self.assertEqual(edit_page.status_code, 200)
+        self.assertContains(edit_page, '发布时间')
+
+        # 后台动作「发布」把草稿改成已发布
+        self.client.post(changelist, {
+            'action': 'make_published',
+            '_selected_action': [str(draft.pk)],
+        })
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, Post.STATUS_PUBLISHED)
+

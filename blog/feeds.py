@@ -27,7 +27,8 @@ class LatestPostsFeed(Feed):
         return self._request.build_absolute_uri('/')
 
     def items(self):
-        return Post.objects.filter(is_published=True, is_page=False)[:20]
+        # 只订阅前台可见的文章：草稿 / 还没到发布时间的文章不进 RSS
+        return Post.objects.visible().filter(is_page=False)[:20]
 
     def item_title(self, item):
         return item.title
@@ -40,7 +41,8 @@ class LatestPostsFeed(Feed):
         return self._request.build_absolute_uri(path)
 
     def item_pubdate(self, item):
-        return item.created_at
+        # 发布时间（不是创建时间）：定时发布到点后，RSS 时间也才对得上
+        return item.pub_time
 
     def item_updateddate(self, item):
         return item.updated_at
