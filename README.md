@@ -11,6 +11,7 @@
 | **2** | 分类 + 搜索 + 分页 | ✅ 2026-11-15 |
 | **3** | Markdown 渲染 + 代码高亮 + 样式打磨 | ✅ 2026-11-16 |
 | 4 | 部署上线 | — **不做**（本地项目，无云端需求；部署手册留档备用） |
+| **5** | 按 GitHub 参考项目 DjangoBlog 复现功能（第一批） | ✅ 2026-11-23（评论/登录/页面/侧边栏/站点设置） |
 
 ## 文章（3 篇）
 
@@ -18,7 +19,7 @@
 2. 《给博客加分类、搜索和分页，三个我以为半小时能搞定的东西》（2026-11-16）
 3. 《让室友用手机给我的投票 demo 投票：ALLOWED_HOSTS 那点事》（2026-11-16）
 
-## 已经能做什么（v1.1，2026-11-16）
+## 已经能做什么（v1.2，2026-11-23）
 
 | 功能 | 说明 |
 |---|---|
@@ -28,6 +29,11 @@
 | 分页 / 归档 | 每页 5 篇；归档页按年月分组 |
 | 阅读量 | 详情页每次阅读 +1，列表和详情都显示 |
 | 相关文章 | 详情页底部按标签、再按分类推荐 |
+| **登录 / 注册** | 注册、登录、退出、个人中心（看我发过的评论） |
+| **评论** | 登录后评论；支持嵌套回复、审核、关闭评论；后台批量通过 |
+| **独立页面** | 后台把文章勾成「页面」，走 `/page/<id>/`，不进列表/搜索/归档（如留言板） |
+| **侧边栏** | 最新文章 / 最多阅读 / 标签云 / 最新评论 / 页面入口 |
+| **站点设置** | 后台改站名、描述、页脚、备案号、统计代码、评论审核开关、侧边栏数量 |
 | 订阅 / 收录 | RSS 订阅 `/feed/`、站点地图 `/sitemap.xml` |
 | 关于页 | 介绍博客、技术栈、现状 |
 
@@ -99,30 +105,42 @@ myblog/
 │   ├── settings.py         # 全局配置：应用、数据库、时区、静态文件
 │   └── urls.py             # 总路由：/admin/ 和 /（交给 blog）
 ├── blog/                   # 博客应用
-│   ├── models.py           # Category 分类 + Tag 标签 + Post 文章（外键/多对多/封面/阅读量/封面压缩）
+│   ├── models.py           # Category 分类 + Tag 标签 + Post 文章 + BlogSettings 站点设置
 │   ├── markdown_render.py  # Markdown → HTML + 白名单清洗（阶段 3）
-│   ├── admin.py            # 后台配置（三个模型、封面预览）
-│   ├── views.py            # 列表（筛选/搜索/分页）、详情（阅读量/相关）、归档、关于、robots
+│   ├── admin.py            # 后台配置（四个模型、封面预览、评论审核入口）
+│   ├── views.py            # 列表/详情/页面/归档/关于/robots
 │   ├── feeds.py            # RSS 订阅源 /feed/
 │   ├── sitemap.py          # 站点地图 /sitemap.xml
-│   ├── urls.py             # 7 条路由
-│   ├── tests.py            # 59 个测试
-│   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0003）
+│   ├── context_processors.py   # 站点设置 + 导航页面（全站模板可用）
+│   ├── templatetags/blog_extras.py  # 侧边栏 inclusion tag
+│   ├── urls.py             # 8 条路由
+│   ├── tests.py            # 84 个测试
+│   ├── migrations/         # 建表脚本（自动生成，不要手改；已到 0004）
 │   └── management/commands/
-│       ├── seed_posts.py   # 造演示分类/标签/文章
+│       ├── seed_posts.py   # 造演示分类/标签/文章/页面
 │       └── backup.py       # 备份数据库 + media/ 到 backups/
+├── comments/               # 评论应用（嵌套回复、审核、后台批量通过）
+│   ├── models.py           # Comment（自关联 parent）
+│   ├── views.py            # 发表评论（登录 + POST）
+│   ├── utils.py            # 可见评论 + 组装评论树
+│   └── admin.py            # 审核 / 批量通过
+├── accounts/               # 账号应用（登录/注册/退出/个人中心）
 ├── templates/
-│   ├── base.html           # 全站外壳（顶栏 + 页脚 + SEO/分享 meta）
+│   ├── base.html           # 全站外壳（顶栏 + 页脚 + SEO + 登录状态）
 │   ├── 404.html            # 404 页面（带搜索框）
-│   └── blog/
-│       ├── post_list.html  # 列表页（头图 + 搜索 + 分类/标签 + 卡片 + 分页）
-│       ├── post_detail.html# 详情页（封面 + 目录 + 正文 + 上下篇 + 相关）
-│       ├── archive.html    # 归档页（按年月分组）
-│       └── about.html      # 关于页
+│   ├── blog/
+│   │   ├── post_list.html  # 列表页（头图 + 搜索 + 分类/标签 + 卡片 + 分页）
+│   │   ├── post_detail.html# 详情页（封面 + 目录 + 正文 + 上下篇 + 相关 + 评论）
+│   │   ├── page_detail.html# 独立页面（如留言板，也可评论）
+│   │   ├── _sidebar.html   # 侧边栏
+│   │   ├── archive.html    # 归档页（按年月分组）
+│   │   └── about.html      # 关于页
+│   ├── comments/           # _section.html + _comment.html（递归渲染回复）
+│   └── accounts/           # login / register / profile
 ├── static/
 │   ├── favicon.svg         # 站点图标
 │   └── css/
-│       ├── style.css       # 全站样式（约 1200 行，CSS 变量 + 响应式，无框架）
+│       ├── style.css       # 全站样式（约 1600 行，CSS 变量 + 响应式，无框架）
 │       └── pygments.css    # 代码高亮配色（Pygments 生成，勿手改）
 ├── media/                  # 用户上传的封面图（不进 Git，见 .gitignore）
 ├── docs/04_部署手册.md     # PythonAnywhere 部署步骤 + 排查清单
@@ -176,6 +194,23 @@ myblog/
 - **关于页**：`/about/` 介绍博客、技术栈、现状
 - **RSS / 站点地图**：`/feed/` 用 Django syndication，`/sitemap.xml` 手写 XML
 - **测试从 37 个加到 51 个**：标签、封面、阅读量、相关、归档、关于、RSS、sitemap
+
+**复现参考项目 DjangoBlog（2026-11-23，第一批）**
+
+背景：GitHub 上参考了 [liangliangyy/DjangoBlog](https://github.com/liangliangyy/DjangoBlog)
+（Django 5.2 + MySQL/Redis + Tailwind/Alpine/HTMX + Whoosh 的完整博客系统），
+按「功能对齐、不照搬技术栈」的方式复现了最核心的五个差距：
+
+- **评论系统**（`comments/`）：登录后评论、嵌套回复、审核开关、关闭评论、后台批量通过
+- **账号系统**（`accounts/`）：注册、登录、退出、个人中心（看我的评论）
+- **独立页面**：`Post.is_page`，走 `/page/<id>/`，不进列表/搜索/归档/相关（留言板已建）
+- **侧边栏**：最新文章 / 最多阅读 / 标签云 / 最新评论 / 页面入口（两栏布局，窄屏隐藏）
+- **站点设置**：`BlogSettings` 单例，后台可改站名、描述、页脚、备案号、统计代码、评论审核、侧边栏数量
+- **测试从 59 个加到 84 个**：评论权限/审核/回复/关闭、注册登录退出、页面、侧边栏、站点设置
+
+> 没照搬的：MySQL / Redis / Elasticsearch / Tailwind+Vite / OAuth / Docker（参考项目是线上系统，
+> 这些和「本地项目」的定位冲突）。第二批候选：草稿+定时发布、Whoosh 全文搜索、深色模式、
+> 友链页、作者页、插件机制。
 
 **部署加固 + 性能优化（2026-11-23）**
 
@@ -249,7 +284,16 @@ myblog/
 | 备份命令 | `blog/management/commands/backup.py` |
 | robots.txt | `blog/views.py` 的 `robots()`，指向 sitemap |
 | SEO / 分享 | `base.html` 的 canonical / OG / Twitter / RSS 自动发现 |
-| 测试 | `blog/tests.py`（59 个） |
+| 登录 / 登出 | `django.contrib.auth`（`login()` / `logout()`，退出必须 POST） |
+| 注册 | `UserCreationForm` 子类 + `login()` 自动登录 |
+| 评论模型 | 自关联外键 `Comment.parent`（嵌套回复）、`related_name='replies'` |
+| 评论审核 | `Comment.is_approved` + 站点设置开关 + 管理员自动通过 |
+| 评论树 | 视图里组装嵌套 dict，模板 `_comment.html` 递归 include |
+| 站点设置单例 | `BlogSettings.load()`（`get_or_create(pk=1)`）+ 上下文处理器 |
+| 侧边栏 | 自定义 `inclusion_tag`（`{% sidebar %}`），内部查最新/最热/标签/评论 |
+| 模板上下文处理器 | `blog.context_processors.blog_context`：`site`、`nav_pages` 全站可用 |
+| 独立页面 | `Post.is_page` + 单独路由 `/page/<id>/` + 列表/搜索/归档全部排除 |
+| 测试 | `blog/tests.py`（84 个） |
 | 环境变量管理密钥 | `.env` + `python-dotenv` |
 
 ## 几个设计决定
@@ -372,6 +416,28 @@ HSTS 本身已开（1 小时），够用；这属于「知道警告在说什么�
 聊天记录会丢、平台界面会变。写成 `docs/04_部署手册.md`，照着做能复现，
 换电脑/重装也能用。**后来确定这个项目不做云端部署，手册留作以后可选的参考。**
 
+**复现参考项目：为什么只对齐功能、不照搬技术栈？**
+DjangoBlog 是线上系统，用了 MySQL、Redis、Elasticsearch、Tailwind/Vite、Docker。
+这些是「部署与规模」问题的解法，不是「个人本地博客」的问题。
+照搬会先装一堆环境、跑不起来，学到的反而是运维而不是 Django。
+所以按功能拆：评论、登录、页面、侧边栏、站点设置都在我们的技术栈里重写；
+搜索先用 `icontains`，不做 Whoosh/ES；前端继续手写 CSS。
+
+**复现参考项目：评论区为什么要审核开关？**
+参考项目有 `comment_need_review`，这是很现实的需求：个人博客一旦被爬虫/广告盯上，
+没有审核就是灾难。所以 `BlogSettings.comment_need_review` 默认开，
+管理员/博主的评论自动通过（自己不用审自己），游客评论先在后台队列里躺着。
+
+**复现参考项目：为什么独立页面用 `is_page` 而不新建 Page 模型？**
+页面和文章 90% 的字段一样（标题、正文、封面、评论开关），差别只是「进不进列表」。
+新建模型会复制一遍列表/详情/渲染/评论逻辑；加一个布尔字段 + 一条 `/page/<id>/` 路由，
+复用全部现有代码，模板只多一个 `page_detail.html`。
+
+**复现参考项目：站点设置为什么做成单例？**
+站名、描述、备案号、统计代码这些全站只有一份。`BlogSettings.load()` 用
+`get_or_create(pk=1)` 保证只有一行，后台也不允许新增第二行；
+模板通过上下文处理器拿到 `site`，改站名不用改代码、不用重启。
+
 ## 下一步（本地交付，不部署）
 
 **这个项目按本地项目交付，不需要上传到云端。** 平时就是：
@@ -389,6 +455,20 @@ python manage.py runserver
 - [ ] 本地演示包：`启动.bat` + 30 秒演示脚本 + 截图（`12_我的博客/汇报材料_*`）
 - [ ] 组长要看时，当面打开电脑演示；不在场就发截图/录屏（Win+G 录 30 秒）
 - [ ] 每周跑一次 `python manage.py backup`（数据库 + 封面图备份到 `backups/`）
+
+### 复现 DjangoBlog：第二批候选（还没做）
+
+按价值排序，做之前先确认要不要：
+
+1. **文章草稿 + 定时发布**：`status`（草稿/发布）+ `pub_time`，到点才出现在前台
+2. **全文搜索 + 高亮**：本地用 Whoosh（不装 Elasticsearch），搜正文、关键词标黄
+3. **深色模式**：`prefers-color-scheme` + 手动切换
+4. **友链页 + 作者页**：`Links` 模型、按作者筛文章
+5. **简化插件机制**：文章版权声明、外链图标、SEO 插件（参考项目有 8 个插件）
+6. 可选但价值低：缓存（本地 LocMem 意义不大）、i18n、健康检查
+
+**明确不做**：Docker/K8s、MySQL、Redis、Elasticsearch、Tailwind+Vite、OAuth 登录
+（这些是参考项目的生产环境方案，和「本地项目」的定位冲突）。
 
 > 如果哪天改变主意想上线，`docs/04_部署手册.md` 里已经写好了完整步骤
 > （PythonAnywhere 免费方案），照着做即可。部署相关的配置（WhiteNoise、
